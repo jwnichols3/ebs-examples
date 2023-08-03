@@ -40,12 +40,14 @@ Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm not
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
+- Argparse
 
 ### Installation
 
-Ensure that you have Python 3.6+ installed, along with Boto3. You can install Boto3 with pip:
+Ensure that you have Python 3.6+ installed, along with Boto3 and Argparse. You can install Boto3 with pip:
 
 `pip install boto3`
+`pip install argparse`
 
 Then, download the Python script `ebs-cw-alarm-stuckvol.py`.
 
@@ -85,12 +87,13 @@ This Python script uses the AWS SDK (boto3) to create a CloudWatch Dashboard nam
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
+- Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
 ### Installation:
 
 1. Make sure that you have Python 3.6 or newer installed.
-2. Install Boto3 using pip (`pip install boto3`).
+2. Install Boto3 using pip (`pip install boto3 argparse`).
 3. Download the Python script "ebs-cw-dashboard-latency.py".
 
 ### Usage:
@@ -121,12 +124,13 @@ This Python script uses the AWS SDK (boto3) to calculate and display the read, w
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
+- Tabulate and Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
 ### Installation:
 
 - Ensure that you have Python 3.6 or newer installed.
-- Install Boto3 using pip (pip install boto3).
+- Install Boto3, tabulate, and argparse using pip (pip install boto3 tabulate argparse).
 - Download the Python script "ebs-cw-show-latency.py".
 
 ### Usage:
@@ -159,10 +163,13 @@ This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
+- Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
-- Installation:
+
+### Installation:
+
 - Ensure that you have Python 3.6 or newer installed.
-- Install Boto3 using pip (pip install boto3).
+- Install Boto3 and Argepars using pip (pip install boto3 argparse).
 - Download the Python script "ebs-cw-show-stuckvol.py".
 
 ### Usage:
