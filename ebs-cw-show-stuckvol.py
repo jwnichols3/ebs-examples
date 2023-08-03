@@ -1,7 +1,5 @@
 import argparse
 import boto3
-
-# import datetime
 from datetime import datetime, timedelta
 from prettytable import PrettyTable
 
@@ -124,47 +122,6 @@ def show_dashboard(args):
     )
 
 
-def show_dashboard_volume(args):
-    client_ec2 = boto3.client("ec2")
-    client_cloudwatch = boto3.client("cloudwatch")
-    volumes = get_volumes(client_ec2)
-    for volume in volumes:
-        if volume["VolumeId"] == args.volumeid:
-            instance_id = (
-                volume["Attachments"][0]["InstanceId"]
-                if volume["Attachments"]
-                else None
-            )
-            m1 = get_metrics(client_cloudwatch, volume["VolumeId"])
-            m2 = get_metrics(client_cloudwatch, volume["VolumeId"])
-            m3 = get_metrics(client_cloudwatch, volume["VolumeId"])
-            stuck = is_stuck(m1, m2, m3)
-            print(
-                f"Volume ID: {volume['VolumeId']}, Status: {volume['State']}, Instance: {get_instance_name(client_ec2, instance_id)}, m1: {m1}, m2: {m2}, m3: {m3}, Stuck: {stuck}"
-            )
-            break
-    else:
-        print(f"No volume found with ID: {args.volumeid}")
-
-
-def show_stuck_only(args):
-    client_ec2 = boto3.client("ec2")
-    client_cloudwatch = boto3.client("cloudwatch")
-    volumes = get_volumes(client_ec2)
-    for volume in volumes:
-        instance_id = (
-            volume["Attachments"][0]["InstanceId"] if volume["Attachments"] else None
-        )
-        m1 = get_metrics(client_cloudwatch, volume["VolumeId"])
-        m2 = get_metrics(client_cloudwatch, volume["VolumeId"])
-        m3 = get_metrics(client_cloudwatch, volume["VolumeId"])
-        stuck = is_stuck(m1, m2, m3)
-        if stuck:
-            print(
-                f"Volume ID: {volume['VolumeId']}, Status: {volume['State']}, Instance: {get_instance_name(client_ec2, instance_id)}, m1: {m1}, m2: {m2}, m3: {m3}, Stuck: {stuck}"
-            )
-
-
 parser = argparse.ArgumentParser(
     description="EBS Dashboard showing stuck volume status for all EBS volumes that do not have a status of Available."
 )
@@ -173,7 +130,7 @@ parser.add_argument(
     "--repeat",
     type=int,
     default=1,
-    help="Number of times to repeat the default command",
+    help="Number of times to repeat.",
 )
 parser.add_argument(
     "--show-status",
