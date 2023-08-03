@@ -13,15 +13,19 @@ Please note: These scripts are intended for educational purposes and are not rec
 These are the Python scripts included in this repository. More details of each script are provided below.
 
 `ebs-cw-alarm-stuckvol.py`
+
 This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "stuck." A "stuck" volume is one that has a queue length but no read or write operations.
 
 `ebs-cw-dashboard-latency.py`
+
 This Python script creates a CloudWatch Dashboard named "Read and Write Latency". The dashboard includes two calculated metrics for every EBS volume in the AWS Account.
 
 `ebs-cw-show-latency.py`
+
 This Python script calculates and displays the read, write, and overall latency for EBS volumes in an AWS account. It uses CloudWatch metrics to calculate the latencies.
 
 `ebs-cw-show-stuckvol.py`
+
 This Python script monitors the I/O operations for Amazon EBS volumes in an AWS account and creates CloudWatch Alarms for "stuck" volumes. A "stuck" volume is one that has a queue length but no read or write operations.
 
 ## ebs-cw-alarm-stuckvol.py
