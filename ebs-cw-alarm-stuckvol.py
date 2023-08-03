@@ -1,5 +1,6 @@
 import boto3
 import argparse
+import sys
 
 
 def create_alarm(volume_id, cloudwatch):
@@ -92,8 +93,11 @@ def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
 
 
 # Parse arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--newvolumeid", help="The new volume ID to create the alarm for")
+parser = argparse.ArgumentParser(
+    description="Create CloudWatch Alarms for EBS Stuck Volumes."
+)
+parser.add_argument("--volumeid", help="The new volume ID to create the alarm for")
+parser.add_argument("--verbose", action="store_true", help="Print verbsoe output")
 parser.add_argument(
     "--stuck-alarm-for-all-volumes",
     action="store_true",
@@ -123,19 +127,23 @@ volume_ids = [volume["VolumeId"] for volume in volumes["Volumes"]]
 alarms = cloudwatch.describe_alarms()
 alarm_names = [alarm["AlarmName"] for alarm in alarms["MetricAlarms"]]
 
-# If --newvolumeid is provided, create alarm for this volume
-if args.newvolumeid:
-    if args.newvolumeid + "_stuckvol" not in alarm_names:
-        create_alarm(args.newvolumeid, cloudwatch)
+# If --volumeid is provided, create alarm for this volume
+if args.volumeid:
+    if args.volumeid + "_stuckvol" not in alarm_names:
+        print(f"Creating stuck volume alarm for {args.volumeid}")
+        create_alarm(args.volumeid, cloudwatch)
     else:
         print(
-            f"Alarm '{args.newvolumeid}_stuckvol' already exists for volume {args.newvolumeid}"
+            f"Alarm '{args.volumeid}_stuckvol' already exists for volume {args.volumeid}"
         )
 
 # If --stuck-alarm-for-all-volumes is provided, create alarm for all volumes
 if args.stuck_alarm_for_all_volumes or args.all:
     for volume_id in volume_ids:
+        if args.verbose:
+            print(f"Evaluating stuck volume alarm for {volume_id}")
         if volume_id + "_stuckvol" not in alarm_names:
+            print(f"Creating stuck volume alarm for {volume_id}")
             create_alarm(volume_id, cloudwatch)
         else:
             print(f"Alarm '{volume_id}_stuckvol' already exists for volume {volume_id}")
@@ -143,3 +151,9 @@ if args.stuck_alarm_for_all_volumes or args.all:
 # If --stuck-alarm-cleanup is provided, remove alarms for non-existent volumes
 if args.stuck_alarm_cleanup or args.all:
     cleanup_alarms(volume_ids, alarm_names, cloudwatch)
+
+
+# If no arguments were provided, display the help message
+if len(sys.argv) == 1:
+    parser.print_help(sys.stderr)
+    sys.exit(1)
