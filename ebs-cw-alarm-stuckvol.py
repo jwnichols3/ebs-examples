@@ -6,7 +6,39 @@ import sys
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
 
 
-def create_alarm(volume_id, cloudwatch):
+def check_sns_exists(verbose=False):
+    if verbose:
+        print(f"Checking if SNS topic {SNS_ALARM_ACTION_ARN} exists...")
+    try:
+        response = sns.get_topic_attributes(TopicArn=SNS_ALARM_ACTION_ARN)
+        return True
+    except sns.exceptions.AuthorizationErrorException:
+        print(
+            "The script does not have the necessary permissions to check if the SNS topic exists."
+        )
+        sys.exit(1)  # Stop the script here
+    except sns.exceptions.NotFoundException:
+        try:
+            response = sns.list_topics()
+            print("The provided SNS ARN does not exist. Here are the existing topics: ")
+            for topic in response["Topics"]:
+                print(topic["TopicArn"])
+            return False
+        except sns.exceptions.AuthorizationErrorException:
+            print(
+                "The script does not have the necessary permissions to list SNS topics."
+            )
+            sys.exit(1)  # Stop the script here
+        except Exception as e:
+            print("Failed to list SNS topics: " + str(e))
+            sys.exit(1)  # Stop the script here
+
+
+def create_alarm(volume_id, cloudwatch, verbose=False):
+    if not check_sns_exists(verbose):
+        print("Alarm creation failed due to invalid SNS ARN.")
+        return
+
     alarm_name = volume_id + "_stuckvol"
     alarm_details = {
         "AlarmName": alarm_name,
@@ -121,6 +153,7 @@ args = parser.parse_args()
 # Create EC2 and CloudWatch clients
 ec2 = boto3.client("ec2")
 cloudwatch = boto3.client("cloudwatch")
+sns = boto3.client("sns")
 
 # Get all volumes
 volumes = ec2.describe_volumes()
@@ -134,7 +167,7 @@ alarm_names = [alarm["AlarmName"] for alarm in alarms["MetricAlarms"]]
 if args.volumeid:
     if args.volumeid + "_stuckvol" not in alarm_names:
         print(f"Creating stuck volume alarm for {args.volumeid}")
-        create_alarm(args.volumeid, cloudwatch)
+        create_alarm(args.volumeid, cloudwatch, args.vverbose)
     else:
         print(
             f"Alarm '{args.volumeid}_stuckvol' already exists for volume {args.volumeid}"
