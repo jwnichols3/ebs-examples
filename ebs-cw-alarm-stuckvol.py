@@ -2,12 +2,15 @@ import boto3
 import argparse
 import sys
 
+# Change this to your SNS topic ARN.
+SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+
 
 def create_alarm(volume_id, cloudwatch):
     alarm_name = volume_id + "_stuckvol"
     alarm_details = {
         "AlarmName": alarm_name,
-        "AlarmActions": ["arn:aws:sns:us-west-2:338557412966:ebs_alarms"],
+        "AlarmActions": [SNS_ALARM_ACTION_ARN],
         "EvaluationPeriods": 1,
         "DatapointsToAlarm": 1,
         "Threshold": 1.0,
