@@ -16,6 +16,7 @@ def create_dashboard(verbose=False, dry_run=False):
 
     metrics = []
     for i, volume in enumerate(volumes):
+        print(f"Constructing {volume}...")
         metrics.extend(
             [
                 [
@@ -113,13 +114,13 @@ def create_dashboard(verbose=False, dry_run=False):
         print(dashboard_body)
 
     if not dry_run:
+        print(f"Putting dashboard...")
         response = cloudwatch.put_dashboard(
             DashboardName="Read_and_Write_Latency",  # Updated Dashboard Name
             DashboardBody=dashboard_body,
         )
-        if verbose:
-            print("Put Dashboard Response:")
-            print(response)
+        print("Put Dashboard Response:")
+        print(response)
 
 
 def main():

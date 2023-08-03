@@ -85,9 +85,13 @@ def print_table(headers, data):
 def show_dashboard(args):
     client_ec2 = boto3.client("ec2")
     client_cloudwatch = boto3.client("cloudwatch")
+    if args.verbose:
+        print(f"Getting volumes.")
     volumes = get_volumes(client_ec2)
     data = []
     for volume in volumes:
+        if args.verbose:
+            print(f"Getting information for {volume['VolumeId']}.")
         instance_id = (
             volume["Attachments"][0]["InstanceId"] if volume["Attachments"] else None
         )
@@ -172,8 +176,13 @@ parser.add_argument(
     help="Number of times to repeat the default command",
 )
 parser.add_argument(
-    "--show-status", dest="func", action="store_const", const=show_dashboard
+    "--show-status",
+    dest="func",
+    action="store_const",
+    help="(default option) Show a dashboard of EBS volumes with metrics indicating a stuck volume.",
+    const=show_dashboard,
 )
+parser.add_argument("--verbose", action="store_true", help="Print verbsoe output.")
 args = parser.parse_args()
 
 for i in range(args.repeat):

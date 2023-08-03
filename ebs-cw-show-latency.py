@@ -80,9 +80,9 @@ def main():
         help="Show all volumes, regardless of instance state or attachment",
     )
     parser.add_argument(
-        "--progress",
+        "--verbose",
         action="store_true",
-        help="Show progress of gathering data.",
+        help="Show verbose output.",
     )
     parser.add_argument(
         "--repeat",
@@ -101,7 +101,7 @@ def main():
             table_data.append(calculate_latency(args.volume_id, ec2))
         else:
             for volume in ec2.volumes.all():
-                if args.progress:
+                if args.verbose:
                     print(f"Calculating latency for {volume.id}...")
                 volume_data = calculate_latency(volume.id, ec2)
                 if args.show_all or (
