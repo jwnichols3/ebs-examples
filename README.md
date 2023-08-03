@@ -6,7 +6,7 @@ This repository contains Python scripts that demonstrate the use of AWS SDK (bot
 
 # Disclaimer
 
-Please note: These scripts are intended for educational purposes and are not recommended for production use. Always test scripts in a controlled environment before using them in a production capacity.
+Please note: These scripts are intended for educational purposes and are not recommended for production use. Always test scripts in a controlled environment before using them in a production capacity. There is minimum error handling implemented and not all scenarious are accounted for such as scale, access controls, and input validation. There is an inherent assumption that you have a way to run these scripts on a system that has access to the AWS account in question and the required privileges.
 
 # Python Scripts
 
@@ -36,13 +36,13 @@ This Python script uses the AWS SDK (boto3) to create AWS CloudWatch Alarms for 
 
 Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm notifications.
 
-### Requirements
+### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Argparse
 
-### Installation
+### Python Module Installation
 
 Ensure that you have Python 3.6+ installed, along with Boto3 and Argparse. You can install Boto3 with pip:
 
@@ -50,6 +50,23 @@ Ensure that you have Python 3.6+ installed, along with Boto3 and Argparse. You c
 `pip install argparse`
 
 Then, download the Python script `ebs-cw-alarm-stuckvol.py`.
+
+### AWS Access Permissions
+
+_CloudWatch Permissions:_
+
+- `cloudwatch:PutMetricAlarm`: This permission is required to create a new alarm.
+- `cloudwatch:DeleteAlarms`: This permission is required to delete alarms.
+- `cloudwatch:DescribeAlarms`: This permission is required to retrieve information about the current alarms.
+
+_EC2 Permissions_
+
+- `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
+
+SNS Permissions:
+
+- `sns:GetTopicAttributes`: This permission is required to retrieve the attributes of the SNS topic.
+- `sns:ListTopics`: This permission is required to list all the SNS topics in your AWS account.
 
 ### Usage
 
@@ -83,30 +100,45 @@ EBS CloudWatch Dashboard Latency Script
 
 This Python script uses the AWS SDK (boto3) to create a CloudWatch Dashboard named "Read and Write Latency". The dashboard includes two calculated metrics for every EBS volume in the AWS Account: EBS Write Latency and EBS Read Latency. The script ensures that the metrics are only created if they don't already exist.
 
-### Requirements:
+### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Installation:
+### Python Module Installation
 
 1. Make sure that you have Python 3.6 or newer installed.
 2. Install Boto3 using pip (`pip install boto3 argparse`).
 3. Download the Python script "ebs-cw-dashboard-latency.py".
 
-### Usage:
+### AWS Access Permissions
+
+_CloudWatch Permissions:_
+
+- `cloudwatch:PutDashboard`: This permission is required to create or modify dashboards in CloudWatch.
+- `cloudwatch:DeleteDashboards`: This permission is required to delete dashboards.
+- `cloudwatch:ListMetrics`: This permission is required to retrieve a list of the current metrics.
+- `cloudwatch:GetDashboard`: This permission is required to retrieve information about specific dashboards.
+- `cloudwatch:DescribeAlarmHistory`: This permission is required to retrieve the history of a specific alarm.
+
+EC2 Permissions
+
+- `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
+
+### Usage
 
 You can run the script from the command line with the following syntax:
+
 `python ebs-cw-dashboard-latency.py [arguments]`
 
-### Arguments:
+### Arguments
 
 - `--verbose`: If this argument is supplied, the script will output debug statements.
 - `--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
 
-### Examples:
+### Examples
 
 To run the script with verbose output:
 `python ebs-cw-dashboard-latency.py --verbose`
@@ -120,31 +152,43 @@ EBS CloudWatch Show Latency Script
 
 This Python script uses the AWS SDK (boto3) to calculate and display the read, write, and overall latency for EBS volumes in an AWS account. It uses CloudWatch metrics to calculate the latencies.
 
-### Requirements:
+### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Tabulate and Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Installation:
+### Python Module Installation
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3, tabulate, and argparse using pip (pip install boto3 tabulate argparse).
 - Download the Python script "ebs-cw-show-latency.py".
 
-### Usage:
+### AWS Access Permissions
+
+_CloudWatch Permissions:_
+
+- `cloudwatch:GetMetricStatistics`: This permission is required to retrieve statistical data for a specified metric.
+- `cloudwatch:ListMetrics`: This permission is required to retrieve a list of the current metrics.
+
+_EC2 Permissions_
+
+- `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
+
+### Usage
 
 You can run the script from the command line with the following syntax:
-python ebs-cw-show-latency.py [arguments]
 
-### Arguments:
+`python ebs-cw-show-latency.py [arguments]`
+
+### Arguments
 
 `--volume-id VOL_ID`: If this argument is supplied, the script will calculate the latency for the specified volume ID only. Otherwise, it calculates latency for all volumes.
 `--verbose`: If this argument is supplied, the script will output additional information.
 `--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
 
-### Examples:
+### Examples
 
 To run the script for a specific volume with verbose output:
 `python ebs-cw-show-latency.py --volume-id vol-0123456789abcdef0 --verbose`
@@ -159,25 +203,37 @@ Please note: Ensure that you replace the vol-0123456789abcdef0 in the example wi
 EBS CloudWatch Show Stuck Volumes Script
 This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O operations for Amazon EBS volumes in an AWS account and create CloudWatch Alarms for "stuck" volumes. A "stuck" volume is one that has a queue length but no read or write operations.
 
-### Requirements:
+### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Installation:
+### Python Module Installation
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3 and Argepars using pip (pip install boto3 argparse).
 - Download the Python script "ebs-cw-show-stuckvol.py".
 
-### Usage:
+### AWS Access Permissions
+
+_CloudWatch Permissions:_
+
+- `cloudwatch:DescribeAlarms`: This permission is required to retrieve information about the current alarms.
+- `cloudwatch:GetMetricData`: This permission is required to retrieve metric data for the specified metrics.
+
+_EC2 Permissions_
+
+- `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
+
+### Usage
 
 You can run the script from the command line with the following syntax:
-python ebs-cw-show-stuckvol.py [arguments]
 
-### Arguments:
+`python ebs-cw-show-stuckvol.py [arguments]`
+
+### Arguments
 
 `--volumeid VOL_ID`: If this argument is supplied, the script will create a CloudWatch Alarm for the specified volume ID only. Otherwise, it creates alarms for all volumes.
 `--verbose`: If this argument is supplied, the script will output additional information.
@@ -185,7 +241,7 @@ python ebs-cw-show-stuckvol.py [arguments]
 `--stuck-alarm-cleanup`: If this argument is supplied, the script will remove stuck volume alarms for non-existent volumes.
 `--all`: If this argument is supplied, the script will perform all operations.
 
-### Examples:
+### Examples
 
 To run the script for a specific volume with verbose output:
 `python ebs-cw-show-stuckvol.py --volumeid vol-0123456789abcdef0 --verbose`
