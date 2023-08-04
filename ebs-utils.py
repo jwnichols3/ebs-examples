@@ -24,6 +24,25 @@ def get_volume_metadata(volume):
     return metadata
 
 
+def list_volume_tags(volume_id=None):
+    ec2 = boto3.resource("ec2")
+
+    if volume_id is not None:
+        volumes = [ec2.Volume(volume_id)]
+    else:
+        volumes = list(ec2.volumes.all())
+
+    for volume in volumes:
+        if volume.tags is None:
+            print(f"Volume {volume.id} does not have any tags.")
+            continue
+
+        print(f"Tags for volume {volume.id}:")
+        for tag in volume.tags:
+            print(f"  Key: {tag['Key']}, Value: {tag['Value']}")
+        print("---")
+
+
 def describe_status(volume_id):
     ec2 = boto3.resource("ec2")
     volume = ec2.Volume(volume_id)
@@ -87,6 +106,12 @@ def main():
         help="List all EBS volumes in the account",
     )
     parser.add_argument(
+        "--list-tags",
+        action="store_true",
+        help="List tags for all volumes or a specific volume if --volumeid is provided",
+    )
+    parser.add_argument("--volumeid", help="The volume ID to operate on")
+    parser.add_argument(
         "--metadata-fields",
         action="store_true",
         help="List all EBS metadata fields",
@@ -102,6 +127,12 @@ def main():
         help="Print describe-status metadata for all EBS volumes",
     )
     args = parser.parse_args()
+
+    if args.list_tags:
+        if args.volumeid is not None:
+            list_volume_tags(args.volumeid)
+        else:
+            list_volume_tags()
 
     if args.list_volumes:
         list_all_volumes()
