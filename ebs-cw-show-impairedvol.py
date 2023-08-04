@@ -38,8 +38,8 @@ def get_metrics(client, volume_id, metric_name):
     return metrics["Datapoints"][0]["Average"] if metrics["Datapoints"] else 0
 
 
-def is_stuck(read_ops, write_ops, queue_length):
-    stuck_vol = (
+def is_impaired(read_ops, write_ops, queue_length):
+    impaired_vol = (
         True
         if (
             read_ops is not None
@@ -50,7 +50,7 @@ def is_stuck(read_ops, write_ops, queue_length):
         else False
     )
 
-    return stuck_vol
+    return impaired_vol
 
 
 def list_volumes(args):
@@ -96,7 +96,7 @@ def show_dashboard(args):
         m1 = get_metrics(client_cloudwatch, volume["VolumeId"], "VolumeReadOps")
         m2 = get_metrics(client_cloudwatch, volume["VolumeId"], "VolumeWriteOps")
         m3 = get_metrics(client_cloudwatch, volume["VolumeId"], "VolumeQueueLength")
-        stuck = is_stuck(m1, m2, m3)
+        impaired = is_impaired(m1, m2, m3)
         data.append(
             [
                 volume["VolumeId"],
@@ -105,7 +105,7 @@ def show_dashboard(args):
                 "{:8.2f}".format(m1) if m1 is not None else "---",
                 "{:8.2f}".format(m2) if m2 is not None else "---",
                 "{:.4f}".format(m3) if m3 is not None else "---",
-                stuck,
+                impaired,
             ]
         )
     print_table(
@@ -116,14 +116,14 @@ def show_dashboard(args):
             "Read (m1)",
             "Write (m2)",
             "Queue (m3)",
-            "VolStuck",
+            "VolImpaired",
         ],
         data,
     )
 
 
 parser = argparse.ArgumentParser(
-    description="EBS Dashboard showing stuck volume status for all EBS volumes that do not have a status of Available."
+    description="EBS Dashboard showing impaired volume status for all EBS volumes that do not have a status of Available."
 )
 parser.set_defaults(func=show_dashboard)
 parser.add_argument(
@@ -136,7 +136,7 @@ parser.add_argument(
     "--show-status",
     dest="func",
     action="store_const",
-    help="(default option) Show a dashboard of EBS volumes with metrics indicating a stuck volume.",
+    help="(default option) Show a dashboard of EBS volumes with metrics indicating a impaired volume.",
     const=show_dashboard,
 )
 parser.add_argument("--verbose", action="store_true", help="Print verbsoe output.")

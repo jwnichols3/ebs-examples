@@ -2,7 +2,7 @@
 
 # Overview
 
-This repository contains Python scripts that demonstrate the use of AWS SDK (boto3) to interact with Amazon EBS volumes and AWS CloudWatch. These scripts provide a variety of functionality, including creating CloudWatch Alarms for "stuck" volumes, calculating and displaying the read, write, and overall latency for EBS volumes, and creating a CloudWatch Dashboard for EBS latency metrics.
+This repository contains Python scripts that demonstrate the use of AWS SDK (boto3) to interact with Amazon EBS volumes and AWS CloudWatch. These scripts provide a variety of functionality, including creating CloudWatch Alarms for "impaired" volumes, calculating and displaying the read, write, and overall latency for EBS volumes, and creating a CloudWatch Dashboard for EBS latency metrics.
 
 # Disclaimer
 
@@ -12,9 +12,9 @@ Please note: These scripts are intended for educational purposes and are not rec
 
 These are the Python scripts included in this repository. More details of each script are provided below.
 
-`ebs-cw-alarm-stuckvol.py`
+`ebs-cw-alarm-impairedvol.py`
 
-This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "stuck." A "stuck" volume is one that has a queue length but no read or write operations.
+This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
 
 `ebs-cw-dashboard-latency.py`
 
@@ -24,15 +24,15 @@ This Python script creates a CloudWatch Dashboard named "Read and Write Latency"
 
 This Python script calculates and displays the read, write, and overall latency for EBS volumes in an AWS account. It uses CloudWatch metrics to calculate the latencies.
 
-`ebs-cw-show-stuckvol.py`
+`ebs-cw-show-impairedvol.py`
 
-This Python script monitors the I/O operations for Amazon EBS volumes in an AWS account and creates CloudWatch Alarms for "stuck" volumes. A "stuck" volume is one that has a queue length but no read or write operations.
+This Python script monitors the I/O operations for Amazon EBS volumes in an AWS account and creates CloudWatch Alarms for "impaired" volumes. A "impaired" volume is one that has a queue length but no read or write operations.
 
-## ebs-cw-alarm-stuckvol.py
+## ebs-cw-alarm-impairedvol.py
 
-EBS Stuck Volume CloudWatch Alarm Script
+EBS Impaired Volume CloudWatch Alarm Script
 
-This Python script uses the AWS SDK (boto3) to create AWS CloudWatch Alarms for Amazon EBS volumes. The purpose of these alarms is to alert when EBS volumes become "stuck," or unresponsive. The script provides options to create alarms for a specific volume, for all volumes, or to clean up alarms for volumes that no longer exist.
+This Python script uses the AWS SDK (boto3) to create AWS CloudWatch Alarms for Amazon EBS volumes. The purpose of these alarms is to alert when EBS volumes become "impaired," or unresponsive. The script provides options to create alarms for a specific volume, for all volumes, or to clean up alarms for volumes that no longer exist.
 
 Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm notifications.
 
@@ -49,7 +49,7 @@ Ensure that you have Python 3.6+ installed, along with Boto3 and Argparse. You c
 `pip install boto3`
 `pip install argparse`
 
-Then, download the Python script `ebs-cw-alarm-stuckvol.py`.
+Then, download the Python script `ebs-cw-alarm-impairedvol.py`.
 
 ### AWS Access Permissions
 
@@ -72,27 +72,27 @@ SNS Permissions:
 
 You can run the script from the command line with the following syntax:
 
-`python ebs-cw-alarm-stuckvol.py [arguments]`
+`python ebs-cw-alarm-impairedvol.py [arguments]`
 
 ### Arguments
 
 - `--volumeid`: Specify the ID of a new EBS volume to create an alarm for.
 - `--verbose`: Enable verbose output.
-- `--stuck-alarm-for-all-volumes`: Create stuck volume alarms for all EBS volumes.
-- `--stuck-alarm-cleanup`: Remove stuck volume alarms for non-existent volumes.
-- `--all`: Perform all operations: add stuck volume alarms for all volumes and remove alarms for non-existent volumes.
+- `--impaired-alarm-for-all-volumes`: Create impaired volume alarms for all EBS volumes.
+- `--impaired-alarm-cleanup`: Remove impaired volume alarms for non-existent volumes.
+- `--all`: Perform all operations: add impaired volume alarms for all volumes and remove alarms for non-existent volumes.
 
 If the script is run without any arguments, it will display help output.
 
 ### Examples
 
-To create a stuck volume alarm for a specific EBS volume:
+To create a impaired volume alarm for a specific EBS volume:
 
-`python ebs-cw-alarm-stuckvol.py --volumeid vol-0abcdefgh123`
+`python ebs-cw-alarm-impairedvol.py --volumeid vol-0abcdefgh123`
 
-To create stuck volume alarms for all EBS volumes and to remove alarms for volumes that no longer exist:
+To create impaired volume alarms for all EBS volumes and to remove alarms for volumes that no longer exist:
 
-`python ebs-cw-alarm-stuckvol.py --all`
+`python ebs-cw-alarm-impairedvol.py --all`
 
 ## ebs-cw-dashboard-latency.py
 
@@ -198,10 +198,10 @@ To run the script for all volumes:
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
 
-## ebs-cw-show-stuckvol.py
+## ebs-cw-show-impairedvol.py
 
-EBS CloudWatch Show Stuck Volumes Script
-This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O operations for Amazon EBS volumes in an AWS account and create CloudWatch Alarms for "stuck" volumes. A "stuck" volume is one that has a queue length but no read or write operations.
+EBS CloudWatch Show Impaired Volumes Script
+This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O operations for Amazon EBS volumes in an AWS account and create CloudWatch Alarms for "impaired" volumes. A "impaired" volume is one that has a queue length but no read or write operations.
 
 ### Python Requirements
 
@@ -214,7 +214,7 @@ This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3 and Argepars using pip (pip install boto3 argparse).
-- Download the Python script "ebs-cw-show-stuckvol.py".
+- Download the Python script "ebs-cw-show-impairedvol.py".
 
 ### AWS Access Permissions
 
@@ -231,22 +231,22 @@ _EC2 Permissions_
 
 You can run the script from the command line with the following syntax:
 
-`python ebs-cw-show-stuckvol.py [arguments]`
+`python ebs-cw-show-impairedvol.py [arguments]`
 
 ### Arguments
 
 `--volumeid VOL_ID`: If this argument is supplied, the script will create a CloudWatch Alarm for the specified volume ID only. Otherwise, it creates alarms for all volumes.
 `--verbose`: If this argument is supplied, the script will output additional information.
-`--stuck-alarm-for-all-volumes`: If this argument is supplied, the script will create stuck volume alarms for all volumes.
-`--stuck-alarm-cleanup`: If this argument is supplied, the script will remove stuck volume alarms for non-existent volumes.
+`--impaired-alarm-for-all-volumes`: If this argument is supplied, the script will create impaired volume alarms for all volumes.
+`--impaired-alarm-cleanup`: If this argument is supplied, the script will remove impaired volume alarms for non-existent volumes.
 `--all`: If this argument is supplied, the script will perform all operations.
 
 ### Examples
 
 To run the script for a specific volume with verbose output:
-`python ebs-cw-show-stuckvol.py --volumeid vol-0123456789abcdef0 --verbose`
+`python ebs-cw-show-impairedvol.py --volumeid vol-0123456789abcdef0 --verbose`
 
 To run the script for all volumes:
-`python ebs-cw-show-stuckvol.py --all`
+`python ebs-cw-show-impairedvol.py --all`
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.

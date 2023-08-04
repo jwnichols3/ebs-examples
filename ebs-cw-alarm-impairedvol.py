@@ -39,7 +39,7 @@ def create_alarm(volume_id, cloudwatch, verbose=False):
         print("Alarm creation failed due to invalid SNS ARN.")
         return
 
-    alarm_name = volume_id + "_stuckvol"
+    alarm_name = volume_id + "_impairedvol"
     alarm_details = {
         "AlarmName": alarm_name,
         "AlarmActions": [SNS_ALARM_ACTION_ARN],
@@ -52,7 +52,7 @@ def create_alarm(volume_id, cloudwatch, verbose=False):
             {
                 "Id": "e1",
                 "Expression": "IF(m3>0 AND m1+m2==0, 1, 0)",
-                "Label": "StuckVolume",
+                "Label": "ImpairedVolume",
                 "ReturnData": True,
             },
             {
@@ -113,9 +113,9 @@ def create_alarm(volume_id, cloudwatch, verbose=False):
 
 def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
     for alarm_name in alarm_names:
-        # Only consider alarms that end with '_stuckvol'
-        if alarm_name.endswith("_stuckvol"):
-            volume_id = alarm_name[: -len("_stuckvol")]
+        # Only consider alarms that end with '_impairedvol'
+        if alarm_name.endswith("_impairedvol"):
+            volume_id = alarm_name[: -len("_impairedvol")]
             if volume_id not in volume_ids:
                 print(
                     f"Deleting alarm {alarm_name} as volume {volume_id} no longer exists"
@@ -129,24 +129,24 @@ def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
 
 # Parse arguments
 parser = argparse.ArgumentParser(
-    description="Create CloudWatch Alarms for EBS Stuck Volumes."
+    description="Create CloudWatch Alarms for EBS Impaired Volumes."
 )
 parser.add_argument("--volumeid", help="The new volume ID to create the alarm for")
 parser.add_argument("--verbose", action="store_true", help="Print verbsoe output")
 parser.add_argument(
-    "--stuck-alarm-for-all-volumes",
+    "--impaired-alarm-for-all-volumes",
     action="store_true",
-    help="Add stuckvol alarms for all volumes",
+    help="Add impairedvol alarms for all volumes",
 )
 parser.add_argument(
-    "--stuck-alarm-cleanup",
+    "--impaired-alarm-cleanup",
     action="store_true",
-    help="Remove stuckvol alarms for non-existent volumes",
+    help="Remove impairedvol alarms for non-existent volumes",
 )
 parser.add_argument(
     "--all",
     action="store_true",
-    help="Perform all operations: Add stuckvol alarms for all volumes and remove alarms for non-existent volumes",
+    help="Perform all operations: Add impairedvol alarms for all volumes and remove alarms for non-existent volumes",
 )
 args = parser.parse_args()
 
@@ -165,27 +165,29 @@ alarm_names = [alarm["AlarmName"] for alarm in alarms["MetricAlarms"]]
 
 # If --volumeid is provided, create alarm for this volume
 if args.volumeid:
-    if args.volumeid + "_stuckvol" not in alarm_names:
-        print(f"Creating stuck volume alarm for {args.volumeid}")
+    if args.volumeid + "_impairedvol" not in alarm_names:
+        print(f"Creating impaired volume alarm for {args.volumeid}")
         create_alarm(args.volumeid, cloudwatch, args.vverbose)
     else:
         print(
-            f"Alarm '{args.volumeid}_stuckvol' already exists for volume {args.volumeid}"
+            f"Alarm '{args.volumeid}_impairedvol' already exists for volume {args.volumeid}"
         )
 
-# If --stuck-alarm-for-all-volumes is provided, create alarm for all volumes
-if args.stuck_alarm_for_all_volumes or args.all:
+# If --impaired-alarm-for-all-volumes is provided, create alarm for all volumes
+if args.impaired_alarm_for_all_volumes or args.all:
     for volume_id in volume_ids:
         if args.verbose:
-            print(f"Evaluating stuck volume alarm for {volume_id}")
-        if volume_id + "_stuckvol" not in alarm_names:
-            print(f"Creating stuck volume alarm for {volume_id}")
+            print(f"Evaluating impaired volume alarm for {volume_id}")
+        if volume_id + "_impairedvol" not in alarm_names:
+            print(f"Creating impaired volume alarm for {volume_id}")
             create_alarm(volume_id, cloudwatch)
         else:
-            print(f"Alarm '{volume_id}_stuckvol' already exists for volume {volume_id}")
+            print(
+                f"Alarm '{volume_id}_impairedvol' already exists for volume {volume_id}"
+            )
 
-# If --stuck-alarm-cleanup is provided, remove alarms for non-existent volumes
-if args.stuck_alarm_cleanup or args.all:
+# If --impaired-alarm-cleanup is provided, remove alarms for non-existent volumes
+if args.impaired_alarm_cleanup or args.all:
     cleanup_alarms(volume_ids, alarm_names, cloudwatch)
 
 
