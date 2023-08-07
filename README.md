@@ -184,9 +184,9 @@ You can run the script from the command line with the following syntax:
 
 ### Arguments
 
-`--volume-id VOL_ID`: If this argument is supplied, the script will calculate the latency for the specified volume ID only. Otherwise, it calculates latency for all volumes.
-`--verbose`: If this argument is supplied, the script will output additional information.
-`--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
+- `--volume-id VOL_ID`: If this argument is supplied, the script will calculate the latency for the specified volume ID only. Otherwise, it calculates latency for all volumes.
+- `--verbose`: If this argument is supplied, the script will output additional information.
+- `--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
 
 ### Examples
 
@@ -236,11 +236,11 @@ You can run the script from the command line with the following syntax:
 
 ### Arguments
 
-`--volumeid VOL_ID`: If this argument is supplied, the script will create a CloudWatch Alarm for the specified volume ID only. Otherwise, it creates alarms for all volumes.
-`--verbose`: If this argument is supplied, the script will output additional information.
-`--impaired-alarm-for-all-volumes`: If this argument is supplied, the script will create impaired volume alarms for all volumes.
-`--impaired-alarm-cleanup`: If this argument is supplied, the script will remove impaired volume alarms for non-existent volumes.
-`--all`: If this argument is supplied, the script will perform all operations.
+- `--volumeid VOL_ID`: If this argument is supplied, the script will create a CloudWatch Alarm for the specified volume ID only. Otherwise, it creates alarms for all volumes.
+- `--verbose`: If this argument is supplied, the script will output additional information.
+- `--impaired-alarm-for-all-volumes`: If this argument is supplied, the script will create impaired volume alarms for all volumes.
+- `--impaired-alarm-cleanup`: If this argument is supplied, the script will remove impaired volume alarms for non-existent volumes.
+- `--all`: If this argument is supplied, the script will perform all operations.
 
 ### Examples
 
