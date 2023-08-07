@@ -249,6 +249,7 @@ You can run the script from the command line with the following syntax:
 ### Examples
 
 To run the script for a specific volume with verbose output:
+
 `python ebs-cw-show-impairedvol.py --volumeid vol-0123456789abcdef0 --verbose`
 
 To run the script for all volumes:
