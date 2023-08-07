@@ -141,9 +141,11 @@ You can run the script from the command line with the following syntax:
 ### Examples
 
 To run the script with verbose output:
+
 `python ebs-cw-dashboard-latency.py --verbose`
 
 To see what the dashboard JSON would look like without actually creating the dashboard:
+
 `python ebs-cw-dashboard-latency.py --dry-run`
 
 ## ebs-cw-show-latency.py
@@ -191,9 +193,11 @@ You can run the script from the command line with the following syntax:
 ### Examples
 
 To run the script for a specific volume with verbose output:
+
 `python ebs-cw-show-latency.py --volume-id vol-0123456789abcdef0 --verbose`
 
 To run the script for all volumes:
+
 `python ebs-cw-show-latency.py`
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
@@ -248,6 +252,7 @@ To run the script for a specific volume with verbose output:
 `python ebs-cw-show-impairedvol.py --volumeid vol-0123456789abcdef0 --verbose`
 
 To run the script for all volumes:
+
 `python ebs-cw-show-impairedvol.py --all`
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
