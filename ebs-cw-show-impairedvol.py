@@ -45,7 +45,7 @@ def is_impaired(read_ops, write_ops, queue_length):
             read_ops is not None
             and write_ops is not None
             and read_ops + write_ops == 0
-            and queue_length >= 1
+            and queue_length > 0
         )
         else False
     )
