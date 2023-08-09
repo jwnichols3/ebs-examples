@@ -1,0 +1,92 @@
+---
+description: Create CloudWatch Alarms for all EBS Volumes
+schemaVersion: '0.3'
+assumeRole: "arn:aws:iam::338557412966:role/Rocket-SSM-CW-Alerts"
+mainSteps:
+  - name: CreateCloudWatchAlarms
+    action: 'aws:executeScript'
+    inputs:
+      Runtime: python3.8
+      Handler: main
+      Script: |
+        import boto3
+
+        SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+
+        def main(args, logger):
+            ec2 = boto3.client('ec2')
+            cloudwatch = boto3.client('cloudwatch')
+
+            # List all existing EBS volumes
+            volumes_response = ec2.describe_volumes(MaxResults=1000)
+            existing_volume_ids = [v['VolumeId'] for v in volumes_response['Volumes']]
+
+            for volume_id in existing_volume_ids:
+                alarm_name = f"ImpairedVol_{volume_id}"
+
+                # Check if the alarm already exists
+                existing_alarms = cloudwatch.describe_alarms(AlarmNames=[alarm_name])
+                if existing_alarms['MetricAlarms']:
+                    print(f"Alarm {alarm_name} already exists. Skipping creation.")
+                    continue
+
+                # Create the alarm
+                print(f"Creating CloudWatch Alarm {alarm_name} for volume {volume_id}")
+                cloudwatch.put_metric_alarm(
+                    AlarmName=alarm_name,
+                    AlarmActions=[SNS_ALARM_ACTION_ARN],
+                    EvaluationPeriods=1,
+                    DatapointsToAlarm=1,
+                    Threshold=1.0,
+                    ComparisonOperator="GreaterThanOrEqualToThreshold",
+                    TreatMissingData="missing",
+                    Metrics=[
+                        {
+                            "Id": "e1",
+                            "Expression": "IF(m3>0 AND m1+m2==0, 1, 0)",
+                            "Label": "ImpairedVolume",
+                            "ReturnData": True,
+                        },
+                        {
+                            "Id": "m3",
+                            "MetricStat": {
+                                "Metric": {
+                                    "Namespace": "AWS/EBS",
+                                    "MetricName": "VolumeQueueLength",
+                                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                                },
+                                "Period": 300,
+                                "Stat": "Average",
+                            },
+                            "ReturnData": False,
+                        },
+                        {
+                            "Id": "m1",
+                            "MetricStat": {
+                                "Metric": {
+                                    "Namespace": "AWS/EBS",
+                                    "MetricName": "VolumeReadOps",
+                                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                                },
+                                "Period": 300,
+                                "Stat": "Average",
+                            },
+                            "ReturnData": False,
+                        },
+                        {
+                            "Id": "m2",
+                            "MetricStat": {
+                                "Metric": {
+                                    "Namespace": "AWS/EBS",
+                                    "MetricName": "VolumeWriteOps",
+                                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                                },
+                                "Period": 300,
+                                "Stat": "Average",
+                            },
+                            "ReturnData": False,
+                        },
+                    ],
+                )
+
+            return {"status": "success"}

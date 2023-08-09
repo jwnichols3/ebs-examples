@@ -1,0 +1,42 @@
+---
+description: Cleanup CloudWatch Alarms for non-existent EBS Volumes
+schemaVersion: '0.3'
+assumeRole: "arn:aws:iam::338557412966:role/Rocket-SSM-CW-Alerts"
+mainSteps:
+  - name: CleanupCloudWatchAlarms
+    action: 'aws:executeScript'
+    inputs:
+      Runtime: python3.8
+      Handler: main
+      Script: |
+        import boto3
+
+        def main(args, logger):
+            ec2 = boto3.client('ec2')
+            cloudwatch = boto3.client('cloudwatch')
+
+            # List all existing EBS volumes
+            volumes_response = ec2.describe_volumes(MaxResults=1000)
+            existing_volume_ids = [v['VolumeId'] for v in volumes_response['Volumes']]
+            print(f"Found {len(existing_volume_ids)} existing EBS volumes.")
+
+            # List all existing CloudWatch Alarms with prefix ImpairedVol_
+            alarms_response = cloudwatch.describe_alarms(AlarmNamePrefix='ImpairedVol_')
+            alarms_to_cleanup = []
+            for alarm in alarms_response['MetricAlarms']:
+                alarm_volume_id = alarm['AlarmName'].split("_", 1)[1]
+                if alarm_volume_id not in existing_volume_ids:
+                    alarms_to_cleanup.append(alarm['AlarmName'])
+
+            print(f"Found {len(alarms_to_cleanup)} alarms to be cleaned up.")
+
+            # Delete the identified CloudWatch Alarms
+            if alarms_to_cleanup:
+                for alarm_name in alarms_to_cleanup:
+                    print(f"Deleting alarm: {alarm_name}")
+                cloudwatch.delete_alarms(AlarmNames=alarms_to_cleanup)
+                print(f"Deleted {len(alarms_to_cleanup)} CloudWatch Alarms.")
+            else:
+                print("No alarms to delete.")
+
+            return {"status": "success"}
