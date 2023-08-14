@@ -1,0 +1,33 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for EventBridge rule 'ebs-cw-alarm-impairedvol-create'",
+  "Resources": {
+    "EventRule0": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Description": "Create an ImpairedVol Alart when an EBS Volume is created",
+        "EventBusName": "default",
+        "EventPattern": {
+          "source": ["aws.ec2"],
+          "detail-type": ["EBS Volume Notification"],
+          "detail": {
+            "event": ["createVolume"]
+          }
+        },
+        "Name": "ebs-cw-alarm-impairedvol-create",
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Id": "Id9f98d99f-9e3a-41ad-b56d-595f18caece8",
+            "Arn": "arn:aws:ssm:us-west-2:338557412966:automation-definition/Rocket-CW-EBS-Alarm-ImpairedVol-Create:$LATEST",
+            "RoleArn": "arn:aws:iam::338557412966:role/Rocket-SSM-CW-Alerts",
+            "RetryPolicy": {
+              "MaximumRetryAttempts": 1,
+              "MaximumEventAgeInSeconds": 900
+            }
+          }
+        ]
+      }
+    }
+  }
+}

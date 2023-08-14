@@ -1,3 +1,7 @@
+# STATUS OF SCRIPT:
+
+IN PROGRESS as of 8/14
+
 # AWS Systems Manager Automation - EBS
 
 # ebs-ssm-cw-alarm-create.yaml
