@@ -1,0 +1,29 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for EventBridge rule 'ebs-cw-alarm-impairedvol-cleanup'",
+  "Resources": {
+    "EventRule0": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Description": "Clean up CloudWatch Alarms for EBS Volmes that don't exist",
+        "EventBusName": "default",
+        "EventPattern": {
+          "source": ["aws.ec2"],
+          "detail-type": ["EBS Volume Notification"],
+          "detail": {
+            "event": ["deleteVolume"]
+          }
+        },
+        "Name": "ebs-cw-alarm-impairedvol-cleanup",
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Id": "Id831ba4a4-fb5f-48b1-baf4-4457742d4909",
+            "Arn": "arn:aws:ssm:us-west-2:338557412966:automation-definition/Rocket-CW-EBS-Alarm-ImpairedVol-Cleanup:$DEFAULT",
+            "RoleArn": "arn:aws:iam::338557412966:role/Rocket-SSM-CW-Alerts"
+          }
+        ]
+      }
+    }
+  }
+}
