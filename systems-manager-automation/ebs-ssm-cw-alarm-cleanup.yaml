@@ -11,23 +11,30 @@ mainSteps:
       Script: |
         import boto3
 
+        PAGINATION_COUNT = 300  # number of items per page
+
         def main(args, logger):
             ec2 = boto3.client('ec2')
             cloudwatch = boto3.client('cloudwatch')
 
-            # List all existing EBS volumes
-            volumes_response = ec2.describe_volumes(MaxResults=1000)
-            existing_volume_ids = [v['VolumeId'] for v in volumes_response['Volumes']]
+            # Get all existing EBS volumes using pagination
+            paginator_vols = ec2.get_paginator("describe_volumes")
+            existing_volume_ids = []
+
+            for page in paginator_vols.paginate(MaxResults=PAGINATION_COUNT):
+                for volume in page['Volumes']:
+                    existing_volume_ids.append(volume['VolumeId'])
             print(f"Found {len(existing_volume_ids)} existing EBS volumes.")
 
-            # List all existing CloudWatch Alarms with prefix ImpairedVol_
-            alarms_response = cloudwatch.describe_alarms(AlarmNamePrefix='ImpairedVol_')
+            # List all existing CloudWatch Alarms with prefix ImpairedVol_ using pagination
+            paginator_alarms = cloudwatch.get_paginator("describe_alarms")
             alarms_to_cleanup = []
-            for alarm in alarms_response['MetricAlarms']:
-                alarm_volume_id = alarm['AlarmName'].split("_", 1)[1]
-                if alarm_volume_id not in existing_volume_ids:
-                    alarms_to_cleanup.append(alarm['AlarmName'])
 
+            for page in paginator_alarms.paginate(AlarmNamePrefix='ImpairedVol_', MaxRecords=PAGINATION_COUNT):
+                for alarm in page['MetricAlarms']:
+                    alarm_volume_id = alarm['AlarmName'].split("_", 1)[1]
+                    if alarm_volume_id not in existing_volume_ids:
+                        alarms_to_cleanup.append(alarm['AlarmName'])
             print(f"Found {len(alarms_to_cleanup)} alarms to be cleaned up.")
 
             # Delete the identified CloudWatch Alarms
