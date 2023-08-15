@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from tabulate import tabulate
 
 SLEEP_DURATION = 5  # How long to sleep between the creation and deletion
-TIME_BETWEEN_SEARCH = 0  # number of seconds between the search for the CW Alarms
+TIME_BETWEEN_SEARCH = 1  # number of seconds between the search for the CW Alarms
 DEFAULT_REGION = "us-west-2"
 
 
@@ -56,7 +56,9 @@ def find_alarm(region, volume_id, wait_for_removal=False, verbose=False):
             return time_alarm_removed
 
         retry_message = (
-            "not found, retrying..." if not wait_for_removal else "found, retrying..."
+            "not found yet, retrying..."
+            if not wait_for_removal
+            else "still found, retrying..."
         )
         print(f"{datetime.now()} - Alarm {alarm_name} {retry_message}")
         time.sleep(TIME_BETWEEN_SEARCH)
@@ -81,24 +83,26 @@ def main():
     for n in range(args.repeat):
         print(f"{datetime.now()} - Repeating {n + 1} of {args.repeat} times.")
         # Create EBS Volume
+        print(f"{datetime.now()} - Creating EBS Volume.")
         volume_id, time_created, _ = create_ebs_volume(args.region, args.verbose)
         print(f"{datetime.now()} - Created EBS Volume: {volume_id}")
 
         # Wait for CloudWatch Alarm creation
         time_alarm_found = find_alarm(args.region, volume_id, args.verbose)
-        print(f"{datetime.now()} - Found alarm: ImpairedVol_{volume_id}")
+        # print(f"{datetime.now()} - Found alarm: ImpairedVol_{volume_id}")
 
         # Sleep for specified time
         print(f"{datetime.now()} - Sleeping for {SLEEP_DURATION} seconds")
         time.sleep(SLEEP_DURATION)
 
         # Delete EBS Volume
+        print(f"{datetime.now()} - Deleting EBS Volume: {volume_id}")
         time_deleted = delete_ebs_volume(args.region, volume_id, args.verbose)
-        print(f"{datetime.now()} - Deleted EBS Volume: {volume_id}")
+        # print(f"{datetime.now()} - Deleted EBS Volume: {volume_id}")
 
         # Wait for CloudWatch Alarm removal
         time_alarm_removed = find_alarm(args.region, volume_id, True, args.verbose)
-        print(f"{datetime.now()} - Alarm ImpairedVol_{volume_id} removed")
+        # print(f"{datetime.now()} - Alarm ImpairedVol_{volume_id} removed")
 
         # Collect summary data
         summary_data.append(
