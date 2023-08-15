@@ -4,19 +4,19 @@ import argparse
 from datetime import datetime, timedelta
 from tabulate import tabulate
 
-SLEEP_DURATION = 30  # How long to sleep between the creation and deletion
-TIME_BETWEEN_SEARCH = 1  # number of seconds between the search for the CW Alarms
+SLEEP_DURATION = 5  # How long to sleep between the creation and deletion
+TIME_BETWEEN_SEARCH = 0  # number of seconds between the search for the CW Alarms
 DEFAULT_REGION = "us-west-2"
 
 
-def create_ebs_volume(region, verbose=False):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.create_volume(
-        Size=1, VolumeType="gp2", AvailabilityZone=f"{region}a"
-    )
+def create_ebs_volume(region, verbose):
+    ec2 = boto3.resource("ec2", region_name=region)
+    volume = ec2.create_volume(Size=10, VolumeType="gp2", AvailabilityZone=f"{region}a")
+    volume_id = volume.id
+    time_created = datetime.now()
     if verbose:
-        print(f"Create Volume Response: {response}")
-    return response["VolumeId"]
+        print(f"{datetime.now()} - Created EBS Volume: {volume_id}")
+    return volume_id, time_created, volume
 
 
 def delete_ebs_volume(region, volume_id, verbose):
@@ -67,54 +67,64 @@ def find_alarm(region, volume_id, wait_for_removal=False, verbose=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="EBS and CloudWatch Alarms end-to-end test"
+        description="Script to test EBS volume and CloudWatch Alarm creation and deletion."
     )
-    parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
+    parser.add_argument("--region", default="us-west-2", help="AWS Region")
     parser.add_argument("--verbose", action="store_true", help="Print verbose output")
+    parser.add_argument(
+        "--repeat", default=1, type=int, help="Number of times to repeat the test"
+    )
     args = parser.parse_args()
 
-    # Create an EBS volume
-    time_created = datetime.now()
-    volume_id = create_ebs_volume(args.region, args.verbose)
-    print(f"{time_created} - Created EBS Volume: {volume_id}")
+    summary_data = []
 
-    # Wait for the corresponding CloudWatch Alarm
-    time_alarm_found = find_alarm(args.region, volume_id, args.verbose)
-    if not time_alarm_found:
-        print("Alarm not found. Exiting.")
-        exit(1)
+    for n in range(args.repeat):
+        print(f"{datetime.now()} - Repeating {n + 1} of {args.repeat} times.")
+        # Create EBS Volume
+        volume_id, time_created, _ = create_ebs_volume(args.region, args.verbose)
+        print(f"{datetime.now()} - Created EBS Volume: {volume_id}")
 
-    # Sleep for 30 seconds
-    print(f"{datetime.now()} - Sleeping for {SLEEP_DURATION} seconds")
-    time.sleep(SLEEP_DURATION)
+        # Wait for CloudWatch Alarm creation
+        time_alarm_found = find_alarm(args.region, volume_id, args.verbose)
+        print(f"{datetime.now()} - Found alarm: ImpairedVol_{volume_id}")
 
-    # Delete the EBS volume
-    time_deleted = delete_ebs_volume(args.region, volume_id, args.verbose)
+        # Sleep for specified time
+        print(f"{datetime.now()} - Sleeping for {SLEEP_DURATION} seconds")
+        time.sleep(SLEEP_DURATION)
 
-    # Check until the CloudWatch Alarm is gone
-    time_alarm_removed = find_alarm(
-        region=args.region,
-        volume_id=volume_id,
-        verbose=args.verbose,
-        wait_for_removal=True,
-    )
+        # Delete EBS Volume
+        time_deleted = delete_ebs_volume(args.region, volume_id, args.verbose)
+        print(f"{datetime.now()} - Deleted EBS Volume: {volume_id}")
 
-    if time_alarm_removed:
-        print(f"{datetime.now()} - Finished")
+        # Wait for CloudWatch Alarm removal
+        time_alarm_removed = find_alarm(args.region, volume_id, True, args.verbose)
+        print(f"{datetime.now()} - Alarm ImpairedVol_{volume_id} removed")
 
-        # Print summary table
-        elapsed_creation_time = time_alarm_found - time_created
-        elapsed_removal_time = time_alarm_removed - time_deleted
-        summary_table = [
-            ["Volume ID", volume_id],
-            ["Time Created", time_created],
-            ["Time Alarm Found", time_alarm_found],
-            ["Elapsed Creation Time", elapsed_creation_time],
-            ["Time Deleted", time_deleted],
-            ["Time Alarm Removed", time_alarm_removed],
-            ["Elapsed Removal Time", elapsed_removal_time],
-        ]
-        print(tabulate(summary_table))
+        # Collect summary data
+        summary_data.append(
+            {
+                "Volume ID": volume_id,
+                "Time Created": time_created,
+                "Time Alarm Found": time_alarm_found,
+                "Elapsed Create Time": time_alarm_found - time_created,
+                "Time Deleted": time_deleted,
+                "Time Alarm Removed": time_alarm_removed,
+                "Elapsed Removal Time": time_alarm_removed - time_deleted,
+            }
+        )
+
+    # Print summary table
+    headers = [
+        "Volume ID",
+        "Time Created",
+        "Time Alarm Found",
+        "Elapsed Create Time",
+        "Time Deleted",
+        "Time Alarm Removed",
+        "Elapsed Removal Time",
+    ]
+    table_data = [list(item.values()) for item in summary_data]
+    print(tabulate(table_data, headers=headers, tablefmt="simple"))
 
 
 if __name__ == "__main__":
