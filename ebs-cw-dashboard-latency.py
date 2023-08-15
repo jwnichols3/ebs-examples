@@ -2,12 +2,20 @@ import boto3
 import argparse
 import json
 
+PAGINATION_COUNT = 300  # Set the number of items per page
+
 
 def get_ebs_volumes():
     ec2 = boto3.client("ec2")
-    response = ec2.describe_volumes()
-    volumes = response["Volumes"]
-    return [volume["VolumeId"] for volume in volumes]
+    paginator = ec2.get_paginator("describe_volumes")  # Create a paginator
+    volumes = []
+
+    # Iterate through each page of results
+    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+        for volume in page["Volumes"]:
+            volumes.append(volume["VolumeId"])
+
+    return volumes
 
 
 def create_dashboard(verbose=False, dry_run=False):

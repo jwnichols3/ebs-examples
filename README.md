@@ -36,6 +36,8 @@ EBS Impaired Volume CloudWatch Alarm Script
 
 This Python script uses the AWS SDK (boto3) to create AWS CloudWatch Alarms for Amazon EBS volumes. The purpose of these alarms is to alert when EBS volumes become "impaired," or unresponsive. The script provides options to create alarms for a specific volume, for all volumes, or to clean up alarms for volumes that no longer exist.
 
+The Alert name has a pattern `ImpairedVol_{volume-id}`
+
 Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm notifications.
 
 ### Python Requirements

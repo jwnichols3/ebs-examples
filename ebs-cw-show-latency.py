@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from tabulate import tabulate
 
 TIME_PERIOD = 300
+PAGINATION_COUNT = 300
 
 
 def get_metric_statistics(client, volume_id, metric_name):
@@ -92,22 +93,28 @@ def main():
     )
     args = parser.parse_args()
 
+    ec2_client = boto3.client("ec2")  # Create the EC2 client
+    ec2_resource = boto3.resource("ec2")  # Create the EC2 resource
+    paginator = ec2_client.get_paginator("describe_volumes")
+
     for run in range(args.repeat):
-        print(f"\nRunning {run+1} of {args.repeat} at {datetime.now()}")
-        ec2 = boto3.resource("ec2")
+        print(f"\nRunning {run + 1} of {args.repeat} at {datetime.now()}")
         table_data = []
 
         if args.volume_id:
-            table_data.append(calculate_latency(args.volume_id, ec2))
+            table_data.append(calculate_latency(args.volume_id, ec2_resource))
         else:
-            for volume in ec2.volumes.all():
-                if args.verbose:
-                    print(f"Calculating latency for {volume.id}...")
-                volume_data = calculate_latency(volume.id, ec2)
-                if args.show_all or (
-                    volume_data[2] == "running" and volume_data[1] is not None
-                ):
-                    table_data.append(volume_data)
+            # Use paginator to handle pagination
+            for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+                for volume in page["Volumes"]:
+                    volume_id = volume["VolumeId"]
+                    if args.verbose:
+                        print(f"Calculating latency for {volume_id}...")
+                    volume_data = calculate_latency(volume_id, ec2_resource)
+                    if args.show_all or (
+                        volume_data[2] == "running" and volume_data[1] is not None
+                    ):
+                        table_data.append(volume_data)
 
         print(
             tabulate(

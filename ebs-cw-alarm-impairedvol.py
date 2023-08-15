@@ -4,6 +4,7 @@ import sys
 
 # Change this to your SNS topic ARN.
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+PAGINATION_COUNT = 300  # number of items per Boto3 page call
 
 
 def check_sns_exists(verbose=False):
@@ -39,7 +40,7 @@ def create_alarm(volume_id, cloudwatch, verbose=False):
         print("Alarm creation failed due to invalid SNS ARN.")
         return
 
-    alarm_name = volume_id + "_impairedvol"
+    alarm_name = "ImpairedVol_" + volume_id
     alarm_details = {
         "AlarmName": alarm_name,
         "AlarmActions": [SNS_ALARM_ACTION_ARN],
@@ -155,22 +156,30 @@ ec2 = boto3.client("ec2")
 cloudwatch = boto3.client("cloudwatch")
 sns = boto3.client("sns")
 
-# Get all volumes
-volumes = ec2.describe_volumes()
-volume_ids = [volume["VolumeId"] for volume in volumes["Volumes"]]
+# Get all volumes using pagination
+paginator_vols = ec2.get_paginator("describe_volumes")
+volume_ids = []
 
-# Get all alarms
-alarms = cloudwatch.describe_alarms()
-alarm_names = [alarm["AlarmName"] for alarm in alarms["MetricAlarms"]]
+for page in paginator_vols.paginate(MaxResults=PAGINATION_COUNT):
+    for volume in page["Volumes"]:
+        volume_ids.append(volume["VolumeId"])
+
+# Get all alarms using pagination
+paginator_alarms = cloudwatch.get_paginator("describe_alarms")
+alarm_names = []
+
+for page in paginator_alarms.paginate(MaxRecords=PAGINATION_COUNT):
+    for alarm in page["MetricAlarms"]:
+        alarm_names.append(alarm["AlarmName"])
 
 # If --volumeid is provided, create alarm for this volume
 if args.volumeid:
-    if args.volumeid + "_impairedvol" not in alarm_names:
+    if "ImpairedVol_" + args.volumeid not in alarm_names:
         print(f"Creating impaired volume alarm for {args.volumeid}")
         create_alarm(args.volumeid, cloudwatch, args.vverbose)
     else:
         print(
-            f"Alarm '{args.volumeid}_impairedvol' already exists for volume {args.volumeid}"
+            f"Alarm 'ImpairedVol_{args.volumeid}' already exists for volume {args.volumeid}"
         )
 
 # If --impaired-alarm-for-all-volumes is provided, create alarm for all volumes
@@ -178,12 +187,12 @@ if args.impaired_alarm_for_all_volumes or args.all:
     for volume_id in volume_ids:
         if args.verbose:
             print(f"Evaluating impaired volume alarm for {volume_id}")
-        if volume_id + "_impairedvol" not in alarm_names:
+        if ("ImpairedVol_" + volume_id) not in alarm_names:  # Fixed line
             print(f"Creating impaired volume alarm for {volume_id}")
             create_alarm(volume_id, cloudwatch)
         else:
             print(
-                f"Alarm '{volume_id}_impairedvol' already exists for volume {volume_id}"
+                f"Alarm 'ImpairedVol_{volume_id}' already exists for volume {volume_id}"  # Fixed line
             )
 
 # If --impaired-alarm-cleanup is provided, remove alarms for non-existent volumes

@@ -1,4 +1,3 @@
----
 description: Create CloudWatch Alarms for all EBS Volumes
 schemaVersion: '0.3'
 assumeRole: "arn:aws:iam::338557412966:role/Rocket-SSM-CW-Alerts"
@@ -12,21 +11,31 @@ mainSteps:
         import boto3
 
         SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+        PAGINATION_COUNT = 300  # number of items per page
 
         def main(args, logger):
             ec2 = boto3.client('ec2')
             cloudwatch = boto3.client('cloudwatch')
 
-            # List all existing EBS volumes
-            volumes_response = ec2.describe_volumes(MaxResults=1000)
-            existing_volume_ids = [v['VolumeId'] for v in volumes_response['Volumes']]
+            # Get all existing EBS volumes using pagination
+            paginator_vols = ec2.get_paginator("describe_volumes")
+            existing_volume_ids = []
+
+            for page in paginator_vols.paginate(MaxResults=PAGINATION_COUNT):
+                for volume in page['Volumes']:
+                    existing_volume_ids.append(volume['VolumeId'])
 
             for volume_id in existing_volume_ids:
                 alarm_name = f"ImpairedVol_{volume_id}"
 
-                # Check if the alarm already exists
-                existing_alarms = cloudwatch.describe_alarms(AlarmNames=[alarm_name])
-                if existing_alarms['MetricAlarms']:
+                # Check if the alarm already exists using pagination
+                paginator_alarms = cloudwatch.get_paginator("describe_alarms")
+                existing_alarms = []
+
+                for page in paginator_alarms.paginate(AlarmNames=[alarm_name]):
+                    existing_alarms.extend(page['MetricAlarms'])
+
+                if existing_alarms:
                     print(f"Alarm {alarm_name} already exists. Skipping creation.")
                     continue
 

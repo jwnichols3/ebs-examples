@@ -3,11 +3,16 @@ import boto3
 from datetime import datetime, timedelta
 from prettytable import PrettyTable
 
+PAGINATION_COUNT = 300  # Set the desired value here
+
 
 def get_volumes(client):
-    all_volumes = client.describe_volumes()
-    volumes_in_use = [v for v in all_volumes["Volumes"] if v["State"] != "available"]
-    return volumes_in_use
+    all_volumes = []
+    paginator = client.get_paginator("describe_volumes")
+    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+        volumes_in_use = [v for v in page["Volumes"] if v["State"] != "available"]
+        all_volumes.extend(volumes_in_use)
+    return all_volumes
 
 
 def get_instance_name(client, instance_id):
