@@ -3,9 +3,10 @@ import time
 import argparse
 import datetime
 
-# Constants for Default AWS Region
+# Constants for Default AWS Region - change this to match your environment.
 DEFAULT_AWS_REGION = "us-west-2"
-# Constants for the SSM Automation Documents
+# Constants for the SSM Automation Documents - change these to match your environment.
+# The assumption is you have these configured in Systems Manager Automation
 SSM_CW_ALARM_CREATE = "Rocket-CW-EBS-Alarm-ImpairedVol-Create"
 SSM_CW_ALARM_CLEANUP = "Rocket-CW-EBS-Alarm-ImpairedVol-Cleanup"
 
@@ -88,7 +89,9 @@ def list_cloudwatch_alarms(region, verbose=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AWS EBS CloudWatch Alarm Automation")
+    parser = argparse.ArgumentParser(
+        description="Manually run the AWS EBS CloudWatch Alarm Automation. Change the SSM Automation Documents to match your environment."
+    )
     parser.add_argument("--verbose", action="store_true", help="Print detailed status")
     parser.add_argument(
         "--region",
