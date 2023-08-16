@@ -146,15 +146,13 @@ Ensure that the IAM Role or User executing this automation has the following per
 
 Execute this SSM Automation script using the AWS Management Console or the AWS CLI.
 
-#### Example
-
-# Example AWS CLI command to start the automation execution
+#### Example AWS CLI command to start the automation execution
 
 ```bash
 aws ssm start-automation-execution --document-name "CleanupCloudWatchAlarms"
 ```
 
-# CloudFormation Examples
+#### CloudFormation Examples
 
 These examples show how to deploy the Event Bridge Rules that watch for Create EBS Volume and Delete EBS Volume.
 
@@ -188,7 +186,3 @@ Ensure that the IAM Role or User deploying this template has the following permi
 - **Targets: Id**: The ID of the SSM Automation
 - **Targets: Arn**: The ARN of the SSM Automation
 - **Targets: RoleArn**: The RoleArn of the IAM Role that will run the Automation.
-
-```
-
-```
