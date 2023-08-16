@@ -14,6 +14,16 @@ This visual shows the complete example, including the end to end test scripts, c
 
 ![EBS Examples - Systems Manager Automation](../images/ebs-ssm-automation/‎ebs-ssm-automation.‎002.png)
 
+## Files
+
+This folder has the following files:
+
+- `ebs-ssm-cw-alarm-create.yaml` - SSM Automation document to create CloudWatch alarms on all existing EBS volumes
+- `ebs-ssm-cw-alarm-cleanup.yaml` - SSM Automation document to clean up old CloudWatch alarms when volumes are deleted
+- `ebs-cfn-cw_events-ssm-create.json` - CloudFormation template to create EventBridge rule to trigger alarm creation automation
+- `ebs-cfn-cw_events-ssm-cleanup.json` - CloudFormation template for cleanup automation
+- `ebs-ssm-cw-alarm-end2end.py` - Python script to test end-to-end automation workflow
+
 # Examples SSM Automations
 
 ## ebs-ssm-cw-alarm-create.yaml
