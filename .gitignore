@@ -1,7 +1,7 @@
 # OS and Temp
 .DS_Store
 temp.*
-temp
+temp*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
