@@ -4,7 +4,7 @@ import sys
 
 # Change this to your SNS topic ARN.
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-PAGINATION_COUNT = 300  # number of items per Boto3 page call
+PAGINATION_COUNT = 100  # number of items per Boto3 page call
 
 
 def check_sns_exists(verbose=False):

@@ -196,3 +196,8 @@ Ensure that the IAM Role or User deploying this template has the following permi
 - **Targets: Id**: The ID of the SSM Automation
 - **Targets: Arn**: The ARN of the SSM Automation
 - **Targets: RoleArn**: The RoleArn of the IAM Role that will run the Automation.
+
+# TODO Items
+
+- Have the Alert Create function run just on the newly created or newly deleted volume. Currently the SSM Automation scripts run through all EBS volumes. That is heavy if there are a lot of volumes (1000s).
+- Create a Terraform deployment script.
