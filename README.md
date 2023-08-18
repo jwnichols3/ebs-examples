@@ -261,3 +261,10 @@ To run the script for all volumes:
 `python ebs-cw-show-impairedvol.py --all`
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
+
+# TODO
+
+- For the CW Dashboards, check for limits when creating/updating a dashboard.
+  - Figure out what to do when the dashboard or widget limits are exceeded (new dashboard, new widget, error)
+- New script that creates / updates a CW Dashboard with an Alarm Status widget.
+- Add anomaly detection to the latency dashboard.
