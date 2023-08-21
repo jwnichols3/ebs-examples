@@ -50,13 +50,13 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
 # Lambda Function
 resource "aws_lambda_function" "ebs_alarm_lambda" {
-  filename      = "ebs-lambda-cw-alarm-impairedvol-create.zip"
-  function_name = "ebs_alarm_lambda"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "ebs-lambda-cw-alarm-impairedvol-create.lambda_handler"
-  runtime       = "python3.8"
+  filename         = "ebs-lambda-cw-alarm-impairedvol-create.zip"
+  function_name    = "ebs_alarm_lambda"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "ebs-lambda-cw-alarm-impairedvol-create.lambda_handler"
+  source_code_hash = filebase64sha256("ebs-lambda-cw-alarm-impairedvol-create.zip")
+  runtime          = "python3.8"
 
-  # Pass SNS Topic ARN as an environment variable
   environment {
     variables = {
       SNS_TOPIC_ARN = aws_sns_topic.ebs_alarms.arn

@@ -1,13 +1,20 @@
 import boto3
+import logging
 import os
+
+# Set up logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event, context):
-    # Extract the EBS volume ID from the event object
-    volume_id = event["detail"]["requestParameters"]["volumeId"]
+    # Log the incoming event
+    logger.info(f"Received event: {event}")
 
-    # SNS topic for alarm actions
-    # sns_topic_arn = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+    # Extract the EBS volume ID from the event object
+    volume_id = event["detail"]["responseElements"]["volumeId"]
+
+    # SNS topic ARN from environment variables
     sns_topic_arn = os.environ["SNS_TOPIC_ARN"]
 
     # Boto3 client for CloudWatch
@@ -32,4 +39,14 @@ def lambda_handler(event, context):
         Unit="Seconds",
     )
 
-    return {"statusCode": 200, "body": response}
+    # Log the response from the put_metric_alarm call
+    logger.info(f"CloudWatch alarm response: {response}")
+
+    human_readable_status = (
+        "Successfully created or updated CloudWatch alarm"
+        if response
+        else "Failed to create or update CloudWatch alarm"
+    )
+    logger.info(human_readable_status)
+
+    return {"statusCode": 200, "body": human_readable_status}
