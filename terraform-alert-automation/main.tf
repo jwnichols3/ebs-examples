@@ -100,3 +100,44 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.ebs_creation_rule.arn
 }
+
+# Lambda function for deleting CloudWatch Alarms
+resource "aws_lambda_function" "ebs_alarm_lambda_delete" {
+  function_name    = "ebs_alarm_lambda_delete"
+  filename         = "ebs-lambda-cw-alarm-impairedvol-delete.zip" # Zip file containing the new Python script
+  handler          = "ebs-lambda-cw-alarm-impairedvol-delete.lambda_handler"
+  role             = aws_iam_role.lambda_role.arn
+  runtime          = "python3.8"
+  source_code_hash = filebase64sha256("ebs-lambda-cw-alarm-impairedvol-delete.zip")
+}
+
+# EventBridge Rule for EBS Volume deletion
+resource "aws_cloudwatch_event_rule" "ebs_deletion_rule" {
+  name        = "ebs-volume-alert-deletion"
+  description = "Triggers Lambda for Deleting CloudWatch Alarms when EBS Volume is deleted"
+
+  event_pattern = <<PATTERN
+{
+  "source": ["aws.ec2"],
+  "detail-type": ["AWS API Call via CloudTrail"],
+  "detail": {
+    "eventName": ["DeleteVolume"]
+  }
+}
+PATTERN
+}
+
+# Target for Delete Alarms Rule
+resource "aws_cloudwatch_event_target" "ebs_deletion_target" {
+  rule = aws_cloudwatch_event_rule.ebs_deletion_rule.name
+  arn  = aws_lambda_function.ebs_alarm_lambda_delete.arn
+}
+
+# Permission for EventBridge to invoke the Lambda function
+resource "aws_lambda_permission" "allow_cloudwatch_delete" {
+  statement_id  = "AllowExecutionFromCloudWatchDelete"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ebs_alarm_lambda_delete.arn
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.ebs_deletion_rule.arn
+}
