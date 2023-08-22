@@ -1,3 +1,4 @@
+import sys
 import boto3
 import argparse
 from datetime import datetime, timedelta
@@ -86,6 +87,13 @@ def main():
         help="Show verbose output.",
     )
     parser.add_argument(
+        "--style",
+        type=str,
+        choices=["tsv", "simple", "pretty", "plain", "github", "grid", "fancy"],
+        default="simple",
+        help="Table style format.",
+    )
+    parser.add_argument(
         "--repeat",
         type=int,
         default=1,
@@ -108,14 +116,21 @@ def main():
             for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
                 for volume in page["Volumes"]:
                     volume_id = volume["VolumeId"]
-                    if args.verbose:
-                        print(f"Calculating latency for {volume_id}...")
                     volume_data = calculate_latency(volume_id, ec2_resource)
                     if args.show_all or (
                         volume_data[2] == "running" and volume_data[1] is not None
                     ):
                         table_data.append(volume_data)
 
+                    if args.verbose:
+                        print(
+                            f"Calculating latency for {volume_id}: Read Ops = {volume_data[4]}, Write Ops = {volume_data[7]}, Overall Latency = {volume_data[10]} ms"
+                        )
+                    else:
+                        sys.stdout.write(".")  # Print a dot for progress
+                        sys.stdout.flush()  # Flush the output buffer
+
+        print()  # Print a newline after the dots
         print(
             tabulate(
                 table_data,
@@ -132,6 +147,7 @@ def main():
                     "WriteLtcy (ms)",
                     "OverallLtcy (ms)",
                 ],
+                tablefmt=args.style,
             )
         )
 
