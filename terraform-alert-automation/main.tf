@@ -34,6 +34,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DeleteAlarms",
           "sns:Publish"
         ],
         Resource = "*"

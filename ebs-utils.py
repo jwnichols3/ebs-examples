@@ -1,6 +1,7 @@
 import sys
 import argparse
 import boto3
+from tabulate import tabulate
 
 
 def get_all_ebs_metadata_fields():
@@ -81,7 +82,62 @@ def list_cloudwatch_metrics(volume_id):
         print("No CloudWatch metrics found for the specified EBS volume.")
 
 
-def list_all_volumes():
+def list_volumes(style):
+    ec2 = boto3.resource("ec2")
+    volumes = ec2.volumes.all()
+
+    table_data = []
+    for volume in volumes:
+        volume_id = volume.id
+        volume_name = volume.tags[0]["Value"] if volume.tags else ""
+        status = volume.state
+        volume_type = volume.volume_type
+        size = volume.size
+        date_created = volume.create_time
+        attached_instance_id = (
+            volume.attachments[0]["InstanceId"] if volume.attachments else ""
+        )
+        ec2_instance_name = ""
+        if attached_instance_id:
+            instance = ec2.Instance(attached_instance_id)
+            ec2_instance_name = (
+                [tag["Value"] for tag in instance.tags if tag["Key"] == "Name"][0]
+                if instance.tags
+                else ""
+            )
+
+        table_data.append(
+            [
+                volume_id,
+                volume_name,
+                status,
+                volume_type,
+                size,
+                date_created,
+                attached_instance_id,
+                ec2_instance_name,
+            ]
+        )
+
+    print(
+        tabulate(
+            table_data,
+            headers=[
+                "volume-id",
+                "name",
+                "status",
+                "type",
+                "size",
+                "date created",
+                "ec2 instance",
+                "ec2 name",
+            ],
+            tablefmt=style,
+        )
+    )
+
+
+def list_all_volumes_raw():
     # Assuming you have AWS credentials set up, otherwise, configure them here
     ec2_client = boto3.client("ec2")
     response = ec2_client.describe_volumes()
@@ -104,6 +160,17 @@ def main():
         "--list-volumes",
         action="store_true",
         help="List all EBS volumes in the account",
+    )
+    parser.add_argument(
+        "--list-volumes-raw",
+        action="store_true",
+        help="List all EBS volumes in the account in raw json output",
+    )
+    parser.add_argument(
+        "--style",
+        choices=["tsv", "simple", "pretty", "plain", "github", "grid", "fancy"],
+        default="simple",
+        help="Table style for --list-volumes.",
     )
     parser.add_argument(
         "--list-tags",
@@ -135,7 +202,10 @@ def main():
             list_volume_tags()
 
     if args.list_volumes:
-        list_all_volumes()
+        list_volumes(args.style)
+
+    if args.list_volumes_raw:
+        list_all_volumes_raw()
 
     if args.metadata_fields:
         get_all_ebs_metadata_fields()
