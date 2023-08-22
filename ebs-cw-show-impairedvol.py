@@ -1,9 +1,15 @@
 import argparse
 import boto3
 from datetime import datetime, timedelta
-from prettytable import PrettyTable
+from tabulate import tabulate
+
+# from prettytable import PrettyTable
 
 PAGINATION_COUNT = 300  # Set the desired value here
+
+
+def print_table(headers, data, style):
+    print(tabulate(data, headers=headers, tablefmt=style))
 
 
 def get_volumes(client):
@@ -77,14 +83,6 @@ def list_volumes_only(args):
         print(f"Volume ID: {volume['VolumeId']}, Status: {volume['State']}")
 
 
-def print_table(headers, data):
-    table = PrettyTable()
-    table.field_names = headers
-    for row in data:
-        table.add_row(row)
-    print(table)
-
-
 def show_dashboard(args):
     client_ec2 = boto3.client("ec2")
     client_cloudwatch = boto3.client("cloudwatch")
@@ -124,6 +122,7 @@ def show_dashboard(args):
             "VolImpaired",
         ],
         data,
+        args.style,
     )
 
 
@@ -136,6 +135,13 @@ parser.add_argument(
     type=int,
     default=1,
     help="Number of times to repeat.",
+)
+parser.add_argument(
+    "--style",
+    type=str,
+    choices=["tsv", "simple", "pretty", "plain", "github", "grid", "fancy"],
+    default="simple",
+    help="Table style format. Valid options are tsv, simple, pretty, plain, github, grid, fancy. The default is simple",
 )
 parser.add_argument(
     "--show-status",
