@@ -4,8 +4,7 @@ from datetime import datetime
 import argparse
 from tabulate import tabulate
 
-PAGINATION_COUNT = 5
-SLEEP_TIME = 5
+PAGINATION_COUNT = 300
 
 
 def main():
@@ -18,6 +17,12 @@ def main():
         help="Print the calculated values without publishing them.",
     )
     parser.add_argument(
+        "--sleep",
+        type=int,
+        default=1,
+        help="The amount of time to sleep in between runs. The default is 60 seconds.",
+    )
+    parser.add_argument(
         "--repeat",
         type=int,
         default=1,
@@ -26,12 +31,14 @@ def main():
     args = parser.parse_args()
 
     repeat_count = args.repeat
+    sleep_time = args.sleep
 
     # Print the summary
     print("==========================================")
     print("EBS Custom Metrics Script")
     print(f"Repeat Count: {repeat_count} times")
     print(f"Pagination Count: {PAGINATION_COUNT} items per page")
+    print(f"Sleep Time: {sleep_time} seconds")
     print(f"Dry Run: {'Yes' if args.dryrun else 'No'}")
     print("==========================================\n")
 
@@ -202,8 +209,8 @@ def main():
         print(f"Run took {end_time - start_time:.2f} seconds")
 
         if i < repeat_count - 1:
-            print(f"Sleeping for {SLEEP_TIME} seconds before next iteration:")
-            for remaining_seconds in range(SLEEP_TIME, 0, -1):
+            print(f"Sleeping for {sleep_time} seconds before next iteration:")
+            for remaining_seconds in range(sleep_time, 0, -1):
                 print(f"\r{remaining_seconds} seconds remaining", end="", flush=True)
                 time.sleep(1)
             print("\n")  # Add a newline after the countdown
