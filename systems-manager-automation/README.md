@@ -24,6 +24,10 @@ This folder has the following files:
 - `ebs-cfn-cw_events-ssm-cleanup.json` - CloudFormation template for cleanup automation
 - `ebs-ssm-cw-alarm-end2end.py` - Python script to test end-to-end automation workflow
 
+## Terraform
+
+The Terraform version of this functionality is in the [terraform-alert-automation](../terraform-alert-automation/) folder.
+
 # Examples SSM Automations
 
 ## ebs-ssm-cw-alarm-create.yaml
@@ -200,4 +204,3 @@ Ensure that the IAM Role or User deploying this template has the following permi
 # TODO Items
 
 - Have the Alert Create function run just on the newly created or newly deleted volume. Currently the SSM Automation scripts run through all EBS volumes. That is heavy if there are a lot of volumes (1000s).
-- Create a Terraform deployment script.

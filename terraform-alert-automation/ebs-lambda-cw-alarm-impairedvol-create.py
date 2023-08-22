@@ -48,5 +48,5 @@ def lambda_handler(event, context):
         logger.error(f"An error occurred: {e}")
         return {
             "statusCode": 500,
-            "body": "An error occurred while processing the event. See CloudWatch logs for details.",
+            "body": "An error occurred while processing the event. See CloudWatch Logs for details.",
         }
