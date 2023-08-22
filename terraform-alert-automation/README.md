@@ -2,6 +2,10 @@
 
 This folder contains Terraform configuration to deploy Lambda functions and EventBridge rules to automatically create and delete CloudWatch alarms for EBS volumes.
 
+## NEW DEPLOYMENT
+
+You will want to delete the file `.terraform.lock.hcl` before running `terraform apply` to ensure a clean deployment.
+
 ## Contents
 
 The following files are included:
