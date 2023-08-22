@@ -1,6 +1,23 @@
+variable "region" {
+  description = "The AWS region"
+  type        = string
+  default     = "us-west-2"
+}
+variable "profile" {
+  description = "The AWS profile"
+  type        = string
+  default     = "hme"
+}
+
+variable "sns_topic_email" {
+  description = "The email address used for the SNS topic for CloudWatch Alerts"
+  type        = string
+  default     = "jnicamzn+ebs-sns@amazon.com"
+}
+
 provider "aws" {
-  region  = "us-west-2"
-  profile = "hme"
+  region  = var.region
+  profile = var.profile
 }
 
 # IAM role for Lambda
@@ -52,7 +69,7 @@ resource "aws_sns_topic" "ebs_alarms" {
 resource "aws_sns_topic_subscription" "email_subscription" {
   topic_arn = aws_sns_topic.ebs_alarms.arn
   protocol  = "email"
-  endpoint  = "example@example.com"
+  endpoint  = var.sns_topic_email
 }
 
 # Lambda function
