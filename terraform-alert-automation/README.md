@@ -6,6 +6,14 @@ This folder contains Terraform configuration to deploy Lambda functions and Even
 
 You will want to delete the file `.terraform.lock.hcl` before running `terraform apply` to ensure a clean deployment.
 
+Be sure to zip the two python files into separate files before running `terraform apply`.
+
+Here are samples of how to zip the files using zip:
+
+`zip -r ebs-lambda-cw-alarm-impairedvol-create.zip ebs-lambda-cw-alarm-impairedvol-create.py`
+
+`zip -r ebs-lambda-cw-alarm-impairedvol-delete.zip ebs-lambda-cw-alarm-impairedvol-delete.py`
+
 ## Contents
 
 The following files are included:
