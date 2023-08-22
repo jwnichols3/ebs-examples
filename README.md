@@ -10,6 +10,16 @@ In addition to the Python scripts, there are AWS Systems Manager automations tha
 
 Please note: These scripts are intended for educational purposes and are not recommended for production use. Always test scripts in a controlled environment before using them in a production capacity. There is minimum error handling implemented and not all scenarious are accounted for such as scale, access controls, and input validation. There is an inherent assumption that you have a way to run these scripts on a system that has access to the AWS account in question and the required privileges.
 
+# Additional Resources
+
+## Systems Manager Automation
+
+The [systems-manager-automation](./systems-manager-automation) folder contains examples of using AWS Systems Manager Automation to perform similar functions to the Python scripts. This includes an end-to-end test script that is usable with both the Systems Manager examples and the Terraform examples.
+
+## Terraform Alert Automation
+
+The [terraform-alert-manager](./terraform-alert-manager) folder contains Terraform configuration of Lambda functions and EventBridge rules to automatically create and delete CloudWatch alarms for EBS volumes. This provides an infrastructure as code approach to achieve similar functionality as the Python scripts.
+
 # Python Scripts
 
 These are the Python scripts included in this repository. More details of each script are provided below.
