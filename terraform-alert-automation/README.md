@@ -6,6 +6,8 @@ This folder contains Terraform configuration to deploy Lambda functions and Even
 
 You will want to delete the file `.terraform.lock.hcl` before running `terraform apply` to ensure a clean deployment.
 
+Update the AWS provider and the SNS email variables in `main.tf`.
+
 Be sure to zip the two python files into separate files before running `terraform apply`.
 
 Here are samples of how to zip the files using zip:
