@@ -118,6 +118,8 @@ def lambda_handler(event, context):
                     (total_write_time / write_ops) * 1000 if write_ops != 0 else 0
                 )
 
+                total_latency = read_latency + write_latency
+
                 # Publish the custom metrics
                 cloudwatch.put_metric_data(
                     Namespace="Custom_EBS",
@@ -131,6 +133,11 @@ def lambda_handler(event, context):
                             "MetricName": "VolumeWriteLatency",
                             "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                             "Value": write_latency,
+                        },
+                        {
+                            "MetricName": "VolumeTotalLatency",
+                            "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                            "Value": total_latency,
                         },
                     ],
                 )

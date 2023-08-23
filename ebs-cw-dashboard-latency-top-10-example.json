@@ -1,0 +1,18 @@
+{
+  "metrics": [
+    [
+      {
+        "expression": "REMOVE_EMPTY(SORT(SEARCH(' {Custom_EBS,VolumeId} MetricName=\"VolumeReadLatency\"', 'Average', 60), MAX, DESC, 100))",
+        "label": "EBS",
+        "id": "e1",
+        "region": "us-west-2"
+      }
+    ]
+  ],
+  "view": "timeSeries",
+  "stacked": false,
+  "region": "us-west-2",
+  "stat": "Average",
+  "period": 300,
+  "title": "Read Latency"
+}

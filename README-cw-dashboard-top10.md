@@ -1,6 +1,6 @@
 # CloudWatch Dashboard - Top 10 Read and Write Latency by EBS Volume
 
-# Thing to Change and Consider
+## Thing to Change and Consider
 
 EBS `VolumeReadLatency` and `VolumeWriteLatency` are custom metrics calculated by a Lambda function that retrieves EBS volume metrics, calculates the two latency values, and puts the custom metrics into CloudWatch. This Laambda function runs every minute on a schedule via EventBridge Rules.
 
@@ -10,7 +10,7 @@ This repo has the [Terraform code example](./terraform-latency-custom-metric/) t
 
 Note: this is provided as-is and is meant to be an example.
 
-# Details of the CloudWatch Dashboard
+## Details of the CloudWatch Dashboard
 
 The [example CloudWatch JSON configuration](./ebs-cw-dashboard-latency-top-10-example.json) defines a widget for an AWS CloudWatch Dashboard that displays a time-series graph related to the read latency of Amazon Elastic Block Store (EBS) volumes. Here's what each part of the configuration does:
 
