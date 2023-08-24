@@ -20,6 +20,14 @@ The [systems-manager-automation](./systems-manager-automation) folder contains e
 
 The [terraform-alert-manager](./terraform-alert-manager) folder contains Terraform configuration of Lambda functions and EventBridge rules to automatically create and delete CloudWatch alarms for EBS volumes. This provides an infrastructure as code approach to achieve similar functionality as the Python scripts.
 
+## Terraform Latency Custom Metrics
+
+The [terraform-latency-custom-metric](./terraform-latency-custom-metric/) folder contains Terraform configuration to deploy Lambda functions and CloudWatch PutMetricData permissions to publish EBS latency metrics as custom metrics. This allows the creation of dashboards and alarms based on latency in a similar way to built-in metrics. There is an example dashboard configuration included that shows the Top 10 Read Latency by volume.
+
+## EBS Mini Load Testing and Fault Injection Testing
+
+The [ebs-mini-load-testing-fis](./ebs-mini-load-testing-fis/) folder contains scripts to launch EC2 instances with EBS volumes that use `fio` to perform mini load tests against EBS volumes by reading and writing random data. This allows validating that CloudWatch alarms and dashboards react as expected when volumes become impaired. There is a subfolder that includes the AWS Fault Injection Simulator configuration to inject faults.
+
 # Python Scripts
 
 These are the Python scripts included in this repository. More details of each script are provided below.
@@ -32,7 +40,11 @@ This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These a
 
 This Python script creates a CloudWatch Dashboard named "Read and Write Latency". The dashboard includes two calculated metrics for every EBS volume in the AWS Account.
 
-`ebs-cw-show-latency.py`
+`ebs-cw-show-detailed-metrics-for-latency-by-vol.py`
+
+This Python script displays detailed CloudWatch metrics for read, write, and overall latency for each EBS volume in the AWS account. It calculates and prints these metrics for each volume for a given time frame (defaulting in the last 24 hours). This provides visibility into the latency performance of each EBS volume over time. You can use this with the `--style` option of `tvs` to output in a tabular format for easy importing into spreadsheets or other tools.
+
+`ebs-cw-show-latency-metrics-current.py`
 
 This Python script calculates and displays the read, write, and overall latency for EBS volumes in an AWS account. It uses CloudWatch metrics to calculate the latencies.
 
@@ -162,7 +174,7 @@ To see what the dashboard JSON would look like without actually creating the das
 
 `python ebs-cw-dashboard-latency.py --dry-run`
 
-## ebs-cw-show-latency.py
+## ebs-cw-show-latency-metrics-current.py
 
 EBS CloudWatch Show Latency Script
 
@@ -179,7 +191,7 @@ This Python script uses the AWS SDK (boto3) to calculate and display the read, w
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3, tabulate, and argparse using pip (pip install boto3 tabulate argparse).
-- Download the Python script "ebs-cw-show-latency.py".
+- Download the Python script "ebs-cw-show-latency-metrics-current.py".
 
 ### AWS Access Permissions
 
@@ -196,7 +208,7 @@ _EC2 Permissions_
 
 You can run the script from the command line with the following syntax:
 
-`python ebs-cw-show-latency.py [arguments]`
+`python ebs-cw-show-latency-metrics-current.py [arguments]`
 
 ### Arguments
 
@@ -208,11 +220,11 @@ You can run the script from the command line with the following syntax:
 
 To run the script for a specific volume with verbose output:
 
-`python ebs-cw-show-latency.py --volume-id vol-0123456789abcdef0 --verbose`
+`python ebs-cw-show-latency-metrics-current.py --volume-id vol-0123456789abcdef0 --verbose`
 
 To run the script for all volumes:
 
-`python ebs-cw-show-latency.py`
+`python ebs-cw-show-latency-metrics-current.py`
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
 
