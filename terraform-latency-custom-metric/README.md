@@ -69,3 +69,5 @@ To run this in a different environment, you may need to adjust the following:
 ## Troubleshooting
 
 Ensure that the IAM role associated with the Lambda function has the required permissions. If you encounter an `AccessDenied` error related to `cloudwatch:PutMetricData`, verify the IAM policy defined in the Terraform script.
+
+##
