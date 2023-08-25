@@ -199,13 +199,14 @@ def run_custom_metrics_batch():
     for page in page_iterator:
         for volume in page["Volumes"]:
             volume_id = volume["VolumeId"]
+            safe_volume_id = volume_id.replace("-", "_")
 
             # Add the metric queries for this volume
             metric_queries.extend(
                 [
                     # Read metrics
                     {
-                        "Id": "read_time",
+                        "Id": f"read_time_{safe_volume_id}",
                         "MetricStat": {
                             "Metric": {
                                 "Namespace": "AWS/EBS",
@@ -219,7 +220,7 @@ def run_custom_metrics_batch():
                         },
                     },
                     {
-                        "Id": "read_ops",
+                        "Id": f"read_ops_{safe_volume_id}",
                         "MetricStat": {
                             "Metric": {
                                 "Namespace": "AWS/EBS",
@@ -234,7 +235,7 @@ def run_custom_metrics_batch():
                     },
                     # Write metrics
                     {
-                        "Id": "write_time",
+                        "Id": f"write_time_{safe_volume_id}",
                         "MetricStat": {
                             "Metric": {
                                 "Namespace": "AWS/EBS",
@@ -248,7 +249,7 @@ def run_custom_metrics_batch():
                         },
                     },
                     {
-                        "Id": "write_ops",
+                        "Id": f"write_ops_{safe_volume_id}",
                         "MetricStat": {
                             "Metric": {
                                 "Namespace": "AWS/EBS",
@@ -290,12 +291,22 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     )
 
+    logging.debug("Response for get_metric_data is %s", response)
+
     # Process the response and update custom_metrics
     for i in range(0, len(response["MetricDataResults"]), 4):
-        total_read_time = response["MetricDataResults"][i]["Values"][-1]
-        read_ops = response["MetricDataResults"][i + 1]["Values"][-1]
-        total_write_time = response["MetricDataResults"][i + 2]["Values"][-1]
-        write_ops = response["MetricDataResults"][i + 3]["Values"][-1]
+        # Check if the Values list has data for each metric
+        if all(response["MetricDataResults"][j]["Values"] for j in range(i, i + 4)):
+            total_read_time = response["MetricDataResults"][i]["Values"][-1]
+            read_ops = response["MetricDataResults"][i + 1]["Values"][-1]
+            total_write_time = response["MetricDataResults"][i + 2]["Values"][-1]
+            write_ops = response["MetricDataResults"][i + 3]["Values"][-1]
+
+        else:
+            logging.warning(
+                f"Metrics data missing for volume with ID derived from {metric_queries[i]['Id']}"
+            )
+            continue
 
         # Perform the calculations
         read_latency = (total_read_time / read_ops) * 1000 if read_ops != 0 else 0
@@ -303,7 +314,10 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         total_latency = read_latency + write_latency
 
         # Extract volume_id from the query
-        volume_id = metric_queries[i]["MetricStat"]["Metric"]["Dimensions"][0]["Value"]
+        # volume_id = metric_queries[i]["MetricStat"]["Metric"]["Dimensions"][0]["Value"]
+        # volume_id = metric_queries[i]["Id"].split("_")[-1]
+        safe_volume_id = metric_queries[i]["Id"].split("_", 2)[-1]
+        volume_id = safe_volume_id.replace("_", "-")
 
         # Add to custom_metrics
         custom_metrics.extend(
