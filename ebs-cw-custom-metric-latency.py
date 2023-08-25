@@ -44,10 +44,20 @@ def main():
         print(
             f"Repeating {i + 1} of {repeat_count} times at {datetime.now().strftime('%Y-%d-%m %H:%M:%S')}"
         )
+
+        start_time = time.time()  # Record the start time
+
         if args.batch:
             run_custom_metrics_batch()
         else:
             run_custom_metrics()
+
+        end_time = time.time()  # Record the end time
+
+        total_time_taken = end_time - start_time  # Calculate total time taken
+        print(
+            f"Total time taken: {total_time_taken:.2f} seconds"
+        )  # Print or log the total time taken
 
 
 def run_custom_metrics():
@@ -133,9 +143,8 @@ def run_custom_metrics():
                 EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             )
 
-            if (
-                response["MetricDataResults"]
-                and response["MetricDataResults"][0]["Values"]
+            if response["MetricDataResults"] and all(
+                metric["Values"] for metric in response["MetricDataResults"]
             ):
                 # Extract the values
                 total_read_time = response["MetricDataResults"][0]["Values"][-1]
@@ -175,11 +184,15 @@ def run_custom_metrics():
                     ],
                 )
                 logging.info(
-                    f"Metrics updated for volume {volume_id}: "
-                    f"Read Latency = {read_latency:.2f} ms, "
-                    f"Write Latency = {write_latency:.2f} ms, "
-                    f"Total Latency = {total_latency:.2f} ms."
+                    f"Latency metrics updated for volume {volume_id}: "
+                    f"Read L = {read_latency:.2f} ms "
+                    f"(Rt {total_read_time:.2f} / Rops {read_ops:.2f}), "
+                    f"Write L = {write_latency:.2f} ms "
+                    f"(Wt {total_write_time:.2f} / Wops {read_ops:.2f}), "
+                    f"Total L = {total_latency:.2f} ms {read_latency:.2f}+{write_latency:.2f}"
                 )
+            else:
+                logging.warning(f"Metrics data missing for volume {volume_id}")
 
     logging.info("Custom metrics updated for all volumes.")
 
@@ -341,10 +354,12 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         )
 
         logging.info(
-            f"Metrics processed for volume {volume_id}: "
-            f"Read Latency = {read_latency:.2f} ms, "
-            f"Write Latency = {write_latency:.2f} ms, "
-            f"Total Latency = {total_latency:.2f} ms."
+            f"Latency metrics updated for volume {volume_id}: "
+            f"Read L = {read_latency:.2f} ms "
+            f"(Rt {total_read_time:.2f} / Rops {read_ops:.2f}), "
+            f"Write L = {write_latency:.2f} ms "
+            f"(Wt {total_write_time:.2f} / Wops {read_ops:.2f}), "
+            f"Total L = {total_latency:.2f} ms {read_latency:.2f}+{write_latency:.2f}"
         )
 
 
