@@ -1,45 +1,81 @@
 import boto3
-import os
 import time
 import logging
 from datetime import datetime
+import argparse
+
+PAGINATION_COUNT = 300
+TIME_INTERVAL = 60
+GET_BATCH_SIZE = 500
+PUT_BATCH_SIZE = 1000
 
 
-# Read constants from environment variables
-PAGINATION_COUNT = int(os.environ.get("PAGINATION_COUNT", 300))
-TIME_INTERVAL = int(os.environ.get("TIME_INTERVAL", 60))
-GET_BATCH_SIZE = int(os.environ.get("GET_BATCH_SIZE", 500))
-PUT_BATCH_SIZE = int(os.environ.get("PUT_BATCH_SIZE", 1000))
-LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO")
-# Configure logging
-logging.basicConfig(level=getattr(logging, LOGGING_LEVEL.upper()))
-
-
-def lambda_handler(event, context):
-    start_time = time.time()  # Record the start time
-
-    (
-        volumes_processed,
-        volumes_with_metrics,
-        volumes_without_metrics,
-    ) = run_custom_metrics_batch()
-
-    end_time = time.time()  # Record the end time
-    total_time_taken = end_time - start_time
-
-    final_message = (
-        f"Processed {volumes_processed} volumes in {total_time_taken:.2f} seconds. "
-        f"{volumes_with_metrics} volumes have CW metrics. {volumes_without_metrics} did not have CW metrics."
+def main():
+    parser = argparse.ArgumentParser(
+        description="Calculate and publish custom EBS metrics."
     )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="Repeat the process the specified number of times. Default is 1.",
+    )
+    parser.add_argument(
+        "--sleep",
+        type=int,
+        default=5,
+        help="Sleep for the specified number of seconds between repeats. Default is 5 seconds.",
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose logging for debugging."
+    )
+    args = parser.parse_args()
 
-    logging.debug("Debug log before final info log.")
-    logging.info(final_message)
-    print(final_message)  # Print statement as a test
+    logging_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(level=logging_level)
 
-    return {"status": "success"}
+    repeat_count = args.repeat
+    sleep_time = args.sleep
+
+    for i in range(repeat_count):
+        print(
+            f"Repeating {i + 1} of {repeat_count} times at {datetime.now().strftime('%Y-%d-%m %H:%M:%S')}"
+        )
+
+        start_time = time.time()  # Record the start time
+
+        (
+            volumes_processed,
+            volumes_with_metrics,
+            volumes_without_metrics,
+        ) = run_custom_metrics_batch()
+
+        end_time = time.time()  # Record the end time
+
+        total_time_taken = end_time - start_time  # Calculate total time taken
+        final_message = (
+            f"Processed {volumes_processed} volumes in {total_time_taken:.2f} seconds. "
+            f"{volumes_with_metrics} volumes have CW metrics. {volumes_without_metrics} did not have CW metrics."
+        )
+        logging.info(final_message)
+
+        print(final_message)
+
+        # Sleep and show the countdown if this is not the last iteration
+        if i < repeat_count - 1:
+            for i in range(sleep_time, 0, -1):
+                print(
+                    f"\rSleeping for {str(i).zfill(len(str(sleep_time)))} seconds...",
+                    end="",
+                    flush=True,
+                )
+                time.sleep(1)
+            print("\rContinuing...                    ")
 
 
 def run_custom_metrics_batch():
+    logging.info("Starting custom EBS metrics calculation in batch mode.")
+
     cloudwatch = boto3.client("cloudwatch")
     ec2 = boto3.client("ec2")
 
@@ -128,6 +164,7 @@ def run_custom_metrics_batch():
                 new_volumes_with_metrics, new_volumes_without_metrics = process_metrics(
                     cloudwatch, metric_queries, custom_metrics
                 )
+
                 volumes_with_metrics += new_volumes_with_metrics
                 volumes_without_metrics += new_volumes_without_metrics
                 metric_queries = []
@@ -145,7 +182,7 @@ def run_custom_metrics_batch():
         batch = custom_metrics[i : i + PUT_BATCH_SIZE]
         cloudwatch.put_metric_data(Namespace="Custom_EBS", MetricData=batch)
 
-    logging.debug("Custom metrics updated for all volumes in batch mode.")
+    logging.info("Custom metrics updated for all volumes in batch mode.")
 
     return volumes_processed, volumes_with_metrics, volumes_without_metrics
 
@@ -162,7 +199,7 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     )
 
-    # logging.debug("Response for get_metric_data is %s", response)
+    logging.debug("Response for get_metric_data is %s", response)
 
     # Process the response and update custom_metrics
     for i in range(0, len(response["MetricDataResults"]), 4):
@@ -173,8 +210,9 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
             total_write_time = response["MetricDataResults"][i + 2]["Values"][-1]
             write_ops = response["MetricDataResults"][i + 3]["Values"][-1]
             volumes_with_metrics += 1
+
         else:
-            logging.debug(
+            logging.warning(
                 f"Metrics data missing for volume with ID derived from {metric_queries[i]['Id']}"
             )
             volumes_without_metrics += 1
@@ -185,6 +223,9 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         write_latency = (total_write_time / write_ops) * 1000 if write_ops != 0 else 0
         total_latency = read_latency + write_latency
 
+        # Extract volume_id from the query
+        # volume_id = metric_queries[i]["MetricStat"]["Metric"]["Dimensions"][0]["Value"]
+        # volume_id = metric_queries[i]["Id"].split("_")[-1]
         safe_volume_id = metric_queries[i]["Id"].split("_", 2)[-1]
         volume_id = safe_volume_id.replace("_", "-")
 
@@ -209,7 +250,7 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
             ]
         )
 
-        logging.debug(
+        logging.info(
             f"Latency metrics updated for volume {volume_id}: "
             f"Read L = {read_latency:.2f} ms "
             f"(Rt {total_read_time:.2f} / Rops {read_ops:.2f}), "
@@ -219,3 +260,7 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         )
 
     return volumes_with_metrics, volumes_without_metrics
+
+
+if __name__ == "__main__":
+    main()

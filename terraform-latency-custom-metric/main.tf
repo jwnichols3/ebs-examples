@@ -14,6 +14,11 @@ variable "schedule_rate" {
   type        = number
   default     = 1
 }
+variable "logging_level" {
+  description = "Logging level for the Lambda function (DEBUG or INFO)"
+  type        = string
+  default     = "INFO"
+}
 
 provider "aws" {
   region  = var.region
@@ -72,6 +77,9 @@ resource "aws_lambda_function" "ebs_lambda" {
     variables = {
       PAGINATION_COUNT = 300
       TIME_INTERVAL    = var.schedule_rate * 60
+      GET_BATCH_SIZE   = 500
+      PUT_BATCH_SIZE   = 1000
+      LOGGING_LEVEL    = var.logging_level
     }
   }
 
