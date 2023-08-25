@@ -6,11 +6,16 @@ import argparse
 
 PAGINATION_COUNT = 300
 TIME_INTERVAL = 60
+GET_BATCH_SIZE = 500
+PUT_BATCH_SIZE = 1000
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Calculate and publish custom EBS metrics."
+    )
+    parser.add_argument(
+        "--batch", action="store_true", help="Enable batch processing for metrics."
     )
     parser.add_argument(
         "--repeat",
@@ -39,14 +44,10 @@ def main():
         print(
             f"Repeating {i + 1} of {repeat_count} times at {datetime.now().strftime('%Y-%d-%m %H:%M:%S')}"
         )
-        run_custom_metrics()
-
-        if i < repeat_count - 1:
-            print(f"Sleeping for {sleep_time} seconds before next iteration:")
-            for remaining_seconds in range(sleep_time, 0, -1):
-                print(f"\r{remaining_seconds} seconds remaining", end="", flush=True)
-                time.sleep(1)
-            print("\n")
+        if args.batch:
+            run_custom_metrics_batch()
+        else:
+            run_custom_metrics()
 
 
 def run_custom_metrics():
@@ -181,6 +182,156 @@ def run_custom_metrics():
                 )
 
     logging.info("Custom metrics updated for all volumes.")
+
+
+def run_custom_metrics_batch():
+    logging.info("Starting custom EBS metrics calculation in batch mode.")
+
+    cloudwatch = boto3.client("cloudwatch")
+    ec2 = boto3.client("ec2")
+
+    paginator = ec2.get_paginator("describe_volumes")
+    page_iterator = paginator.paginate(PaginationConfig={"PageSize": PAGINATION_COUNT})
+
+    metric_queries = []
+    custom_metrics = []
+
+    for page in page_iterator:
+        for volume in page["Volumes"]:
+            volume_id = volume["VolumeId"]
+
+            # Add the metric queries for this volume
+            metric_queries.extend(
+                [
+                    # Read metrics
+                    {
+                        "Id": "read_time",
+                        "MetricStat": {
+                            "Metric": {
+                                "Namespace": "AWS/EBS",
+                                "MetricName": "VolumeTotalReadTime",
+                                "Dimensions": [
+                                    {"Name": "VolumeId", "Value": volume_id}
+                                ],
+                            },
+                            "Period": 60,
+                            "Stat": "Sum",
+                        },
+                    },
+                    {
+                        "Id": "read_ops",
+                        "MetricStat": {
+                            "Metric": {
+                                "Namespace": "AWS/EBS",
+                                "MetricName": "VolumeReadOps",
+                                "Dimensions": [
+                                    {"Name": "VolumeId", "Value": volume_id}
+                                ],
+                            },
+                            "Period": 60,
+                            "Stat": "Sum",
+                        },
+                    },
+                    # Write metrics
+                    {
+                        "Id": "write_time",
+                        "MetricStat": {
+                            "Metric": {
+                                "Namespace": "AWS/EBS",
+                                "MetricName": "VolumeTotalWriteTime",
+                                "Dimensions": [
+                                    {"Name": "VolumeId", "Value": volume_id}
+                                ],
+                            },
+                            "Period": 60,
+                            "Stat": "Sum",
+                        },
+                    },
+                    {
+                        "Id": "write_ops",
+                        "MetricStat": {
+                            "Metric": {
+                                "Namespace": "AWS/EBS",
+                                "MetricName": "VolumeWriteOps",
+                                "Dimensions": [
+                                    {"Name": "VolumeId", "Value": volume_id}
+                                ],
+                            },
+                            "Period": 60,
+                            "Stat": "Sum",
+                        },
+                    },
+                ]
+            )
+
+            # Process in batches
+            if len(metric_queries) == GET_BATCH_SIZE:
+                process_metrics(cloudwatch, metric_queries, custom_metrics)
+                metric_queries = []
+
+    # Process remaining metrics
+    if metric_queries:
+        process_metrics(cloudwatch, metric_queries, custom_metrics)
+
+    # Publish custom metrics in batches
+    for i in range(0, len(custom_metrics), PUT_BATCH_SIZE):
+        batch = custom_metrics[i : i + PUT_BATCH_SIZE]
+        cloudwatch.put_metric_data(Namespace="Custom_EBS", MetricData=batch)
+
+    logging.info("Custom metrics updated for all volumes in batch mode.")
+
+
+def process_metrics(cloudwatch, metric_queries, custom_metrics):
+    response = cloudwatch.get_metric_data(
+        MetricDataQueries=metric_queries,
+        StartTime=time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - TIME_INTERVAL)
+        ),
+        EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    )
+
+    # Process the response and update custom_metrics
+    for i in range(0, len(response["MetricDataResults"]), 4):
+        total_read_time = response["MetricDataResults"][i]["Values"][-1]
+        read_ops = response["MetricDataResults"][i + 1]["Values"][-1]
+        total_write_time = response["MetricDataResults"][i + 2]["Values"][-1]
+        write_ops = response["MetricDataResults"][i + 3]["Values"][-1]
+
+        # Perform the calculations
+        read_latency = (total_read_time / read_ops) * 1000 if read_ops != 0 else 0
+        write_latency = (total_write_time / write_ops) * 1000 if write_ops != 0 else 0
+        total_latency = read_latency + write_latency
+
+        # Extract volume_id from the query
+        volume_id = metric_queries[i]["MetricStat"]["Metric"]["Dimensions"][0]["Value"]
+
+        # Add to custom_metrics
+        custom_metrics.extend(
+            [
+                {
+                    "MetricName": "VolumeReadLatency",
+                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                    "Value": read_latency,
+                },
+                {
+                    "MetricName": "VolumeWriteLatency",
+                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                    "Value": write_latency,
+                },
+                {
+                    "MetricName": "VolumeTotalLatency",
+                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                    "Value": total_latency,
+                },
+            ]
+        )
+
+        logging.info(
+            f"Metrics processed for volume {volume_id}: "
+            f"Read Latency = {read_latency:.2f} ms, "
+            f"Write Latency = {write_latency:.2f} ms, "
+            f"Total Latency = {total_latency:.2f} ms."
+        )
 
 
 if __name__ == "__main__":
