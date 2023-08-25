@@ -59,6 +59,17 @@ def main():
             f"Total time taken: {total_time_taken:.2f} seconds"
         )  # Print or log the total time taken
 
+        # Sleep and show the countdown if this is not the last iteration
+        if i < repeat_count - 1:
+            for i in range(sleep_time, 0, -1):
+                print(
+                    f"\rSleeping for {str(i).zfill(len(str(sleep_time)))} seconds...",
+                    end="",
+                    flush=True,
+                )
+                time.sleep(1)
+            print("\rContinuing...                    ")
+
 
 def run_custom_metrics():
     logging.info(
