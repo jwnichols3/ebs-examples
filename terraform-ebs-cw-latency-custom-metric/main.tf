@@ -6,7 +6,7 @@ variable "region" {
 variable "profile" {
   description = "The AWS profile"
   type        = string
-  default     = "hme"
+  default     = "default"
 }
 
 variable "schedule_rate" {
