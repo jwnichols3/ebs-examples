@@ -4,7 +4,7 @@
 
 This repository contains Python scripts that demonstrate the use of AWS SDK (boto3) to interact with Amazon EBS volumes and AWS CloudWatch. These scripts provide a variety of functionality, including creating CloudWatch Alarms for "impaired" volumes, calculating and displaying the read, write, and overall latency for EBS volumes, and creating a CloudWatch Dashboard for EBS latency metrics.
 
-In addition to the Python scripts, there are AWS Systems Manager automations that do similar functions. See more in the [SSM README](./systems-manager-automation/README.md)
+In addition to the Python scripts, there are AWS Systems Manager automations that do similar functions. See more in the [SSM README](./systems-manager-automation-ebs-cw-alarms/)
 
 # Updates
 
