@@ -8,6 +8,7 @@ PAGINATION_COUNT = 300
 TIME_INTERVAL = 60
 GET_BATCH_SIZE = 500
 PUT_BATCH_SIZE = 1000
+CW_CUSTOM_NAMESPACE = "Custom_EBS"
 
 
 def main():
@@ -38,8 +39,9 @@ def main():
     sleep_time = args.sleep
 
     for i in range(repeat_count):
+        cycle_count = i + 1
         print(
-            f"Repeating {i + 1} of {repeat_count} times at {datetime.now().strftime('%Y-%d-%m %H:%M:%S')}"
+            f"Repeating {cycle_count} of {repeat_count} times at {datetime.now().strftime('%Y-%d-%m %H:%M:%S')}"
         )
 
         start_time = time.time()  # Record the start time
@@ -65,7 +67,7 @@ def main():
         if i < repeat_count - 1:
             for i in range(sleep_time, 0, -1):
                 print(
-                    f"\rSleeping for {str(i).zfill(len(str(sleep_time)))} seconds...",
+                    f"\rSleeping for {str(i).zfill(len(str(sleep_time)))} seconds... Ran {cycle_count} of {repeat_count} times.",
                     end="",
                     flush=True,
                 )
@@ -180,7 +182,7 @@ def run_custom_metrics_batch():
     # Publish custom metrics in batches
     for i in range(0, len(custom_metrics), PUT_BATCH_SIZE):
         batch = custom_metrics[i : i + PUT_BATCH_SIZE]
-        cloudwatch.put_metric_data(Namespace="Custom_EBS", MetricData=batch)
+        cloudwatch.put_metric_data(Namespace=CW_CUSTOM_NAMESPACE, MetricData=batch)
 
     logging.info("Custom metrics updated for all volumes in batch mode.")
 
