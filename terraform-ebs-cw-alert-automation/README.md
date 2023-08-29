@@ -47,4 +47,4 @@ The main.tf file deploys the following components:
 - This is example code and not intended for production use without modification.
 - Lambda functions are packaged as ZIP files containing Python code
 - Lambda executes when EventBridge rules match EBS API calls via CloudTrail
-- In the [systems-manager-automation](../systems-manager-automation/) folder is an alternative approach using SSM Automation Documents instead of Laambda. There is also a Python script to [test end-to-end workflow](../systems-manager-automation/ebs-cw_events-ssm-end2end.py) that you can use to validate this deployment works as expected.
+- In the [systems-manager-automation-ebs-cw-alarms](../systems-manager-automation-ebs-cw-alarms/) folder is an alternative approach using SSM Automation Documents instead of Laambda. There is also a Python script to [test end-to-end workflow](../systems-manager-automation-ebs-cw-alarms/ebs-cw_events-ssm-end2end.py) that you can use to validate this deployment works as expected.
