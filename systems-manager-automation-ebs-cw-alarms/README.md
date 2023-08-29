@@ -1,8 +1,4 @@
-# STATUS OF SCRIPT:
-
-READY FOR REVIEW as of 8/15
-
-# AWS Systems Manager Automation - EBS Monitoring
+# AWS Systems Manager Automation for EBS Monitoring
 
 This folder contains examples of using AWS Systems Manager (SSM) Automation to create Alerts for newly created EBS Volumes and to clean up alerts for EBS Volumes that no longer exist.
 
