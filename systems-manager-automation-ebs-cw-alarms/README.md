@@ -22,7 +22,7 @@ This folder has the following files:
 
 ## Terraform
 
-The Terraform version of this functionality is in the [terraform-alert-automation](../terraform-alert-automation/) folder.
+The Terraform version of this functionality is in the [terraform-alert-automation](../terraform-ebs-cw-alert-automation/) folder.
 
 # Examples SSM Automations
 
