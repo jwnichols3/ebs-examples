@@ -1,15 +1,37 @@
 import boto3
 import argparse
 from datetime import datetime, timedelta
+from pytz import utc
 from tabulate import tabulate
 from botocore.exceptions import ClientError, BotoCoreError
 
 PAGINATOR_COUNT = 300
 
 
-def main(volume_id, table_style, metrics, output_to_file=False):
+def main(
+    volume_id,
+    table_style,
+    metrics,
+    output_to_file=False,
+    start_date=None,
+    end_date=None,
+):
     ec2, cloudwatch = initialize_aws_clients()
-    start_time, end_time = get_time_range()
+
+    # Validate API limits for the number of metrics and date range
+    if len(metrics) > 500:
+        print("Too many metrics requested, exceeding CloudWatch API limit of 500.")
+        return
+
+    if start_date and end_date:
+        delta = end_date - start_date
+        if delta.days * len(metrics) * 24 > 100800:
+            print(
+                "Requested time range and metrics exceed CloudWatch API limit of 100,800 data points."
+            )
+            return
+
+    start_time, end_time = get_time_range(start_date, end_date)
 
     try:
         volume_details = get_volume_details(ec2, volume_id)
@@ -37,7 +59,7 @@ def main(volume_id, table_style, metrics, output_to_file=False):
 
             table_data[timestamp][metrics.index(metric) + 2] = value
 
-    print_volume_details(volume_details, table_style)
+    print_volume_details(volume_details, table_style, start_time, end_time)
     headers = ["Local", "UTC"] + metrics
     table = sorted(table_data.values())
     print_metrics_table(table, headers, table_style)
@@ -129,14 +151,32 @@ def initialize_aws_clients():
     return ec2, cloudwatch
 
 
-def get_time_range(hours=24):
-    end_time = datetime.utcnow()
-    start_time = end_time - timedelta(hours=hours)
-    return start_time, end_time
+def validate_date(date_str):
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}")
 
 
-def print_volume_details(volume_details, table_style):
+def get_time_range(start_date=None, end_date=None):
+    if start_date and end_date:
+        start_date = start_date.replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=utc
+        )
+        end_date = end_date.replace(
+            hour=23, minute=59, second=59, microsecond=999999, tzinfo=utc
+        )
+        return start_date, end_date
+    else:
+        end_time = datetime.utcnow().replace(tzinfo=utc)
+        start_time = end_time - timedelta(hours=24)
+        return start_time, end_time
+
+
+def print_volume_details(volume_details, table_style, start_time, end_time):
     print("Volume Details:")
+    print(f"Start Time: {start_time}")
+    print(f"End Time:   {end_time}")
     print(tabulate(volume_details.items(), tablefmt=table_style))
 
 
@@ -153,6 +193,12 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(description="Fetch EBS Volume Metrics")
     parser.add_argument("--volume-id", required=True, help="EBS Volume ID")
+    parser.add_argument(
+        "--start", type=validate_date, help="Start date in format YYYY-MM-DD"
+    )
+    parser.add_argument(
+        "--end", type=validate_date, help="End date in format YYYY-MM-DD"
+    )
     parser.add_argument(
         "--metrics",
         nargs="+",
@@ -176,4 +222,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args.volume_id, args.style, args.metrics, args.file)
+    main(args.volume_id, args.style, args.metrics, args.file, args.start, args.end)
