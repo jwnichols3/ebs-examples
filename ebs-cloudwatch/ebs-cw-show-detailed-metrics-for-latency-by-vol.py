@@ -2,6 +2,7 @@ import boto3
 import argparse
 from datetime import datetime, timedelta
 from tabulate import tabulate
+from botocore.exceptions import ClientError, BotoCoreError
 
 PAGINATOR_COUNT = 300
 
@@ -9,7 +10,15 @@ PAGINATOR_COUNT = 300
 def main(volume_id, table_style, metrics):
     ec2, cloudwatch = initialize_aws_clients()
     start_time, end_time = get_time_range()
-    volume_details = get_volume_details(ec2, volume_id)
+
+    try:
+        volume_details = get_volume_details(ec2, volume_id)
+        if not volume_details:
+            print(f"Volume ID {volume_id} invalid or volume not found.")
+            return
+    except (ClientError, BotoCoreError) as e:
+        print(f"Error getting volume details for {volume_id}: {e}")
+        return
 
     print(f"Fetching data for metrics: {', '.join(metrics)}")
     all_data_points = get_metrics(cloudwatch, metrics, volume_id, start_time, end_time)
@@ -35,46 +44,55 @@ def main(volume_id, table_style, metrics):
 
 
 def get_metrics(cloudwatch, metrics, volume_id, start_time, end_time):
-    metric_data_queries = [
-        {
-            "Id": f"m{i}",
-            "MetricStat": {
-                "Metric": {
-                    "Namespace": "AWS/EBS",
-                    "MetricName": metric,
-                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+    try:
+        metric_data_queries = [
+            {
+                "Id": f"m{i}",
+                "MetricStat": {
+                    "Metric": {
+                        "Namespace": "AWS/EBS",
+                        "MetricName": metric,
+                        "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                    },
+                    "Period": 60,
+                    "Stat": "Average",
                 },
-                "Period": 60,
-                "Stat": "Average",
-            },
-            "ReturnData": True,
-        }
-        for i, metric in enumerate(metrics)
-    ]
+                "ReturnData": True,
+            }
+            for i, metric in enumerate(metrics)
+        ]
 
-    paginator = cloudwatch.get_paginator("get_metric_data")
-    response_iterator = paginator.paginate(
-        MetricDataQueries=metric_data_queries,
-        StartTime=start_time,
-        EndTime=end_time,
-        PaginationConfig={"PageSize": PAGINATOR_COUNT},
-    )
+        paginator = cloudwatch.get_paginator("get_metric_data")
+        response_iterator = paginator.paginate(
+            MetricDataQueries=metric_data_queries,
+            StartTime=start_time,
+            EndTime=end_time,
+            PaginationConfig={"PageSize": PAGINATOR_COUNT},
+        )
 
-    data_points = {metric: [] for metric in metrics}
+        data_points = {metric: [] for metric in metrics}
 
-    for response in response_iterator:
-        for i, metric in enumerate(metrics):
-            metric_data = zip(
-                response["MetricDataResults"][i]["Timestamps"],
-                response["MetricDataResults"][i]["Values"],
-            )
-            data_points[metric].extend(metric_data)
+        for response in response_iterator:
+            for i, metric in enumerate(metrics):
+                metric_data = zip(
+                    response["MetricDataResults"][i]["Timestamps"],
+                    response["MetricDataResults"][i]["Values"],
+                )
+                data_points[metric].extend(metric_data)
 
-    return data_points
+        return data_points
+    except (ClientError, BotoCoreError) as e:
+        print(f"Error fetching metrics: {e}")
+        return ()
 
 
 def get_volume_details(ec2, volume_id):
-    response = ec2.describe_volumes(VolumeIds=[volume_id])
+    try:
+        response = ec2.describe_volumes(VolumeIds=[volume_id])
+    except (ClientError, BotoCoreError) as e:
+        print(f"Error fetching volume details: {e}")
+        return None
+
     volume = response["Volumes"][0]
     volume_details = {
         "Volume ID": volume["VolumeId"],
