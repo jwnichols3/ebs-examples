@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError, BotoCoreError
 PAGINATOR_COUNT = 300
 
 
-def main(volume_id, table_style, metrics):
+def main(volume_id, table_style, metrics, output_to_file=False):
     ec2, cloudwatch = initialize_aws_clients()
     start_time, end_time = get_time_range()
 
@@ -41,6 +41,12 @@ def main(volume_id, table_style, metrics):
     headers = ["Local", "UTC"] + metrics
     table = sorted(table_data.values())
     print_metrics_table(table, headers, table_style)
+
+    if output_to_file:
+        file_name = f"{volume_details.get('Volume ID', 'unknown')}.tsv"
+        with open(file_name, "w") as f:
+            f.write(tabulate(table, headers=headers, tablefmt="tsv"))
+        print(f"Results written to {file_name}")
 
 
 def get_metrics(cloudwatch, metrics, volume_id, start_time, end_time):
@@ -164,9 +170,10 @@ def parse_args():
         default="simple",
         help="Table style",
     )
+    parser.add_argument("--file", action="store_true", help="Output to a file")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args.volume_id, args.style, args.metrics)
+    main(args.volume_id, args.style, args.metrics, args.file)
