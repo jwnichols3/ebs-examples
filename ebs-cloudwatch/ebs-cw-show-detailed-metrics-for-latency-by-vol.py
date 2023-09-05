@@ -6,6 +6,51 @@ from tabulate import tabulate
 PAGINATOR_COUNT = 300
 
 
+def main(volume_id, table_style, metrics):
+    ec2, cloudwatch = initialize_aws_clients()
+    start_time, end_time = get_time_range()
+    volume_details = get_volume_details(ec2, volume_id)
+
+    metrics = [
+        "VolumeReadOps",
+        "VolumeTotalReadTime",
+        "VolumeWriteOps",
+        "VolumeTotalWriteTime",
+    ]
+
+    table_data = {}
+    for metric_name in metrics:
+        print(f"Fetching data for metric: {metric_name}")
+        data_points = get_metrics(
+            cloudwatch, metric_name, volume_id, start_time, end_time
+        )
+        for timestamp, value in data_points:
+            local_timestamp = timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+            utc_timestamp = timestamp.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )  # Format the UTC time
+            if timestamp not in table_data:
+                table_data[timestamp] = [
+                    local_timestamp,
+                    utc_timestamp,
+                ]  # Add the UTC time to the table
+            table_data[timestamp].append(value)
+
+    print("Volume Details:")
+    print(tabulate(volume_details.items(), tablefmt=table_style))
+
+    headers = [
+        "Local",
+        "UTC",
+        "VolumeReadOps",
+        "VolumeTotalReadTime",
+        "VolumeWriteOps",
+        "VolumeTotalWriteTime",
+    ]
+    table = sorted(table_data.values())
+    print(tabulate(table, headers=headers, tablefmt=table_style))
+
+
 def get_metrics(cloudwatch, metric_name, volume_id, start_time, end_time):
     paginator = cloudwatch.get_paginator("get_metric_data")
     response_iterator = paginator.paginate(
@@ -67,41 +112,24 @@ def get_volume_details(ec2, volume_id):
     return volume_details
 
 
-def main(volume_id, table_style):
+def initialize_aws_clients():
     ec2 = boto3.client("ec2")
     cloudwatch = boto3.client("cloudwatch")
+    return ec2, cloudwatch
+
+
+def get_time_range(hours=24):
     end_time = datetime.utcnow()
-    start_time = end_time - timedelta(hours=24)
-    volume_details = get_volume_details(ec2, volume_id)
+    start_time = end_time - timedelta(hours=hours)
+    return start_time, end_time
 
-    metrics = [
-        "VolumeReadOps",
-        "VolumeTotalReadTime",
-        "VolumeWriteOps",
-        "VolumeTotalWriteTime",
-    ]
 
-    table_data = {}
-    for metric_name in metrics:
-        print(f"Fetching data for metric: {metric_name}")
-        data_points = get_metrics(
-            cloudwatch, metric_name, volume_id, start_time, end_time
-        )
-        for timestamp, value in data_points:
-            local_timestamp = timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-            utc_timestamp = timestamp.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )  # Format the UTC time
-            if timestamp not in table_data:
-                table_data[timestamp] = [
-                    local_timestamp,
-                    utc_timestamp,
-                ]  # Add the UTC time to the table
-            table_data[timestamp].append(value)
-
+def print_volume_details(volume_details, table_style):
     print("Volume Details:")
     print(tabulate(volume_details.items(), tablefmt=table_style))
 
+
+def print_metrics_table(table_data, table_style):
     headers = [
         "Local",
         "UTC",
@@ -114,14 +142,34 @@ def main(volume_id, table_style):
     print(tabulate(table, headers=headers, tablefmt=table_style))
 
 
-if __name__ == "__main__":
+def parse_args():
+    """
+    Parses command-line arguments.
+    Returns:
+        argparse.Namespace: Parsed command-line arguments.
+    """
     parser = argparse.ArgumentParser(description="Fetch EBS Volume Metrics")
     parser.add_argument("--volume-id", required=True, help="EBS Volume ID")
+    parser.add_argument(
+        "--metrics",
+        nargs="+",
+        default=[
+            "VolumeReadOps",
+            "VolumeTotalReadTime",
+            "VolumeWriteOps",
+            "VolumeTotalWriteTime",
+        ],
+        help="List of metrics to fetch",
+    )
     parser.add_argument(
         "--style",
         choices=["tsv", "simple", "pretty", "plain", "github", "grid", "fancy"],
         default="simple",
         help="Table style",
     )
-    args = parser.parse_args()
-    main(args.volume_id, args.style)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args.volume_id, args.style, args.metrics)
