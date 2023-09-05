@@ -11,77 +11,64 @@ def main(volume_id, table_style, metrics):
     start_time, end_time = get_time_range()
     volume_details = get_volume_details(ec2, volume_id)
 
-    metrics = [
-        "VolumeReadOps",
-        "VolumeTotalReadTime",
-        "VolumeWriteOps",
-        "VolumeTotalWriteTime",
-    ]
+    print(f"Fetching data for metrics: {', '.join(metrics)}")
+    all_data_points = get_metrics(cloudwatch, metrics, volume_id, start_time, end_time)
 
     table_data = {}
-    for metric_name in metrics:
-        print(f"Fetching data for metric: {metric_name}")
-        data_points = get_metrics(
-            cloudwatch, metric_name, volume_id, start_time, end_time
-        )
+    for metric, data_points in all_data_points.items():
         for timestamp, value in data_points:
             local_timestamp = timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-            utc_timestamp = timestamp.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )  # Format the UTC time
+            utc_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
             if timestamp not in table_data:
-                table_data[timestamp] = [
-                    local_timestamp,
-                    utc_timestamp,
-                ]  # Add the UTC time to the table
-            table_data[timestamp].append(value)
+                table_data[timestamp] = [local_timestamp, utc_timestamp]
 
-    print("Volume Details:")
-    print(tabulate(volume_details.items(), tablefmt=table_style))
+            while len(table_data[timestamp]) <= metrics.index(metric) + 2:
+                table_data[timestamp].append(None)
 
-    headers = [
-        "Local",
-        "UTC",
-        "VolumeReadOps",
-        "VolumeTotalReadTime",
-        "VolumeWriteOps",
-        "VolumeTotalWriteTime",
-    ]
+            table_data[timestamp][metrics.index(metric) + 2] = value
+
+    print_volume_details(volume_details, table_style)
+    headers = ["Local", "UTC"] + metrics
     table = sorted(table_data.values())
-    print(tabulate(table, headers=headers, tablefmt=table_style))
+    print_metrics_table(table, headers, table_style)
 
 
-def get_metrics(cloudwatch, metric_name, volume_id, start_time, end_time):
+def get_metrics(cloudwatch, metrics, volume_id, start_time, end_time):
+    metric_data_queries = [
+        {
+            "Id": f"m{i}",
+            "MetricStat": {
+                "Metric": {
+                    "Namespace": "AWS/EBS",
+                    "MetricName": metric,
+                    "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
+                },
+                "Period": 60,
+                "Stat": "Average",
+            },
+            "ReturnData": True,
+        }
+        for i, metric in enumerate(metrics)
+    ]
+
     paginator = cloudwatch.get_paginator("get_metric_data")
     response_iterator = paginator.paginate(
-        MetricDataQueries=[
-            {
-                "Id": "m1",
-                "MetricStat": {
-                    "Metric": {
-                        "Namespace": "AWS/EBS",
-                        "MetricName": metric_name,
-                        "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
-                    },
-                    "Period": 60,
-                    "Stat": "Average",
-                },
-                "ReturnData": True,
-            }
-        ],
+        MetricDataQueries=metric_data_queries,
         StartTime=start_time,
         EndTime=end_time,
         PaginationConfig={"PageSize": PAGINATOR_COUNT},
     )
 
-    data_points = []
+    data_points = {metric: [] for metric in metrics}
+
     for response in response_iterator:
-        data_points.extend(
-            zip(
-                response["MetricDataResults"][0]["Timestamps"],
-                response["MetricDataResults"][0]["Values"],
+        for i, metric in enumerate(metrics):
+            metric_data = zip(
+                response["MetricDataResults"][i]["Timestamps"],
+                response["MetricDataResults"][i]["Values"],
             )
-        )
+            data_points[metric].extend(metric_data)
 
     return data_points
 
@@ -129,16 +116,8 @@ def print_volume_details(volume_details, table_style):
     print(tabulate(volume_details.items(), tablefmt=table_style))
 
 
-def print_metrics_table(table_data, table_style):
-    headers = [
-        "Local",
-        "UTC",
-        "VolumeReadOps",
-        "VolumeTotalReadTime",
-        "VolumeWriteOps",
-        "VolumeTotalWriteTime",
-    ]
-    table = sorted(table_data.values())
+def print_metrics_table(table_data, headers, table_style):
+    table = sorted(table_data)
     print(tabulate(table, headers=headers, tablefmt=table_style))
 
 
