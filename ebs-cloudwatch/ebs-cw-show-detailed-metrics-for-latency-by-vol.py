@@ -1,4 +1,5 @@
 import boto3
+import sys
 import argparse
 from datetime import datetime, timedelta
 from pytz import utc
@@ -9,19 +10,57 @@ PAGINATOR_COUNT = 300
 
 
 def main(
-    volume_id,
-    table_style,
-    metrics,
+    volume_id=None,
+    table_style="simple",
+    metrics=[
+        "VolumeReadOps",
+        "VolumeTotalReadTime",
+        "VolumeWriteOps",
+        "VolumeTotalWriteTime",
+    ],
     output_to_file=False,
     start_date=None,
     end_date=None,
 ):
     ec2, cloudwatch = initialize_aws_clients()
 
+    if not volume_id:
+        while True:  # keep looping until a valid volume_id is entered
+            volume_id = input(
+                "Enter the EBS Volume ID (or type 'list' to see available volumes): "
+            )
+            if volume_id.lower() == "list":
+                list_volumes(ec2)
+                continue  # skip the remaining part of the loop and go back to the start
+            elif not is_valid_volume(ec2, volume_id):
+                print("Invalid Volume ID. Please try again.")
+                continue
+            else:
+                break  # exit the loop if we get here
+
     # Validate API limits for the number of metrics and date range
     if len(metrics) > 500:
         print("Too many metrics requested, exceeding CloudWatch API limit of 500.")
         return
+
+    while not start_date:
+        start_date_str = input("Enter the start date (YYYY-MM-DD): ")
+        try:
+            start_date = validate_date(start_date_str)
+        except argparse.ArgumentTypeError:
+            print("Invalid date format. Please try again.")
+            start_date = None
+
+    while not end_date:
+        end_date_str = input("Enter the end date (YYYY-MM-DD): ")
+        try:
+            end_date = validate_date(end_date_str)
+            if end_date < start_date:
+                print("End date cannot be before the start date. Please try again.")
+                end_date = None
+        except argparse.ArgumentTypeError:
+            print("Invalid date format. Please try again.")
+            end_date = None
 
     if start_date and end_date:
         delta = end_date - start_date
@@ -69,6 +108,13 @@ def main(
         with open(file_name, "w") as f:
             f.write(tabulate(table, headers=headers, tablefmt="tsv"))
         print(f"Results written to {file_name}")
+
+    print("Run this command in a single line:")
+    print(
+        f"{sys.executable} {sys.argv[0]} --volume-id {volume_id} --start {start_date.strftime('%Y-%m-%d')} "
+        f"--end {end_date.strftime('%Y-%m-%d')} --metrics {' '.join(metrics)} --style {table_style} "
+        f"{'--file' if output_to_file else ''}"
+    )
 
 
 def get_metrics(cloudwatch, metrics, volume_id, start_time, end_time):
@@ -145,6 +191,16 @@ def get_volume_details(ec2, volume_id):
     return volume_details
 
 
+def is_valid_volume(ec2, volume_id):
+    try:
+        response = ec2.describe_volumes(VolumeIds=[volume_id])
+        if not response["Volumes"]:
+            return False
+        return True
+    except (ClientError, BotoCoreError):
+        return False
+
+
 def initialize_aws_clients():
     ec2 = boto3.client("ec2")
     cloudwatch = boto3.client("cloudwatch")
@@ -173,6 +229,16 @@ def get_time_range(start_date=None, end_date=None):
         return start_time, end_time
 
 
+def list_volumes(ec2):
+    try:
+        volumes = ec2.describe_volumes()
+        print("Available Volumes:")
+        for volume in volumes["Volumes"]:
+            print(f"ID: {volume['VolumeId']}, State: {volume['State']}")
+    except (ClientError, BotoCoreError) as e:
+        print(f"Error listing volumes: {e}")
+
+
 def print_volume_details(volume_details, table_style, start_time, end_time):
     print("Volume Details:")
     print(f"Start Time: {start_time}")
@@ -192,7 +258,7 @@ def parse_args():
         argparse.Namespace: Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Fetch EBS Volume Metrics")
-    parser.add_argument("--volume-id", required=True, help="EBS Volume ID")
+    parser.add_argument("--volume-id", help="EBS Volume ID")
     parser.add_argument(
         "--start", type=validate_date, help="Start date in format YYYY-MM-DD"
     )
