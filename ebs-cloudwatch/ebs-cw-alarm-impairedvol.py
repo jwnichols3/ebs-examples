@@ -27,20 +27,18 @@ def main():
 
     if args.all:
         stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
-        stats["created"] = create_alarms(
-            volume_ids, alarm_names, cloudwatch, ec2, sns, args
-        )
-        stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2, args)
+        stats["created"] = create_alarms(volume_ids, alarm_names, cloudwatch, ec2, sns)
+        stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2)
     else:
         if args.cleanup:
             stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
         if args.create:
             target_volumes = [args.volume_id] if args.volume_id else volume_ids
             stats["created"] = create_alarms(
-                target_volumes, alarm_names, cloudwatch, ec2, sns, args
+                target_volumes, alarm_names, cloudwatch, ec2, sns
             )
         if args.update:
-            stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2, args)
+            stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2)
 
     print(
         f"Volumes Processed: {len(volume_ids)}, Alarms Created: {stats['created']}, Alarms Updated: {stats['updated']}, Alarms Deleted: {stats['deleted']}"
@@ -129,7 +127,7 @@ def check_sns_exists(sns):
             sys.exit(1)  # Stop the script here
 
 
-def update_alarms(volume_ids, cloudwatch, ec2, args):
+def update_alarms(volume_ids, cloudwatch, ec2):
     updated_count = 0
     for volume_id in volume_ids:
         if update_alarm_description(
@@ -140,6 +138,8 @@ def update_alarms(volume_ids, cloudwatch, ec2, args):
 
 
 def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
+    deleted_count = 0
+
     for alarm_name in alarm_names:
         # Only consider alarms that start with 'ImpairedVol_'
         if alarm_name.startswith("ImpairedVol_"):
@@ -150,14 +150,23 @@ def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
                 logging.info(
                     f"Deleting alarm {alarm_name} as volume {volume_id} no longer exists"
                 )
-                cloudwatch.delete_alarms(AlarmNames=[alarm_name])
+                try:
+                    cloudwatch.delete_alarms(AlarmNames=[alarm_name])
+                    deleted_count += 1
+                except cloudwatch.exceptions.ClientError as e:
+                    logging.error(f"Failed to delete alarm {alarm_name}: {e}")
+                except Exception as e:
+                    logging.error(f"Unknown error when deleting {alarm_name}: {e}")
+
             else:
                 logging.info(
                     f"No change to alarm {alarm_name} as volume {volume_id} still exists"
                 )
 
+    return deleted_count
 
-def create_alarms(target_volumes, alarm_names, cloudwatch, ec2, sns, args):
+
+def create_alarms(target_volumes, alarm_names, cloudwatch, ec2, sns):
     created_count = 0
     for volume_id in target_volumes:
         alarm_name = "ImpairedVol_" + volume_id
@@ -252,21 +261,30 @@ def create_alarm(volume_id, cloudwatch, ec2, sns):
 
     logging.info(f"Creating alarm {alarm_name} for volume {volume_id}.")
 
-    cloudwatch.put_metric_alarm(
-        AlarmName=alarm_details["AlarmName"],
-        AlarmActions=alarm_details["AlarmActions"],
-        AlarmDescription=alarm_details["AlarmDescription"],
-        EvaluationPeriods=alarm_details["EvaluationPeriods"],
-        DatapointsToAlarm=alarm_details["DatapointsToAlarm"],
-        Threshold=alarm_details["Threshold"],
-        ComparisonOperator=alarm_details["ComparisonOperator"],
-        TreatMissingData=alarm_details["TreatMissingData"],
-        Metrics=alarm_details["Metrics"],
-    )
+    try:
+        cloudwatch.put_metric_alarm(
+            AlarmName=alarm_details["AlarmName"],
+            AlarmActions=alarm_details["AlarmActions"],
+            AlarmDescription=alarm_details["AlarmDescription"],
+            EvaluationPeriods=alarm_details["EvaluationPeriods"],
+            DatapointsToAlarm=alarm_details["DatapointsToAlarm"],
+            Threshold=alarm_details["Threshold"],
+            ComparisonOperator=alarm_details["ComparisonOperator"],
+            TreatMissingData=alarm_details["TreatMissingData"],
+            Metrics=alarm_details["Metrics"],
+        )
 
-    logging.info(
-        f"New alarm '{alarm_details['AlarmName']}' created for volume {volume_id}"
-    )
+        logging.info(
+            f"New alarm '{alarm_details['AlarmName']}' created for volume {volume_id}"
+        )
+    except cloudwatch.exceptions.ClientError as error:
+        logging.error(
+            f"Error creating alarm {alarm_name} for volume {volume_id}: {error}"
+        )
+    except Exception as e:
+        logging.error(
+            f"Unexpected error creating alarm {alarm_name} for volume {volume_id}: {e}"
+        )
 
 
 def update_alarm_description(volume_id, cloudwatch, ec2):
