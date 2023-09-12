@@ -24,11 +24,14 @@ def main():
     alarm_names = get_all_alarm_names(cloudwatch)
 
     stats = {"created": 0, "updated": 0, "deleted": 0, "volumes_processed": 0}
+    volumes_without_alarm = []
 
     if args.all:
         stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
         stats["created"] = create_alarms(volume_ids, alarm_names, cloudwatch, ec2, sns)
-        stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2)
+        stats["updated"] = update_alarms(
+            volume_ids, cloudwatch, ec2, volumes_without_alarm
+        )
     else:
         if args.cleanup:
             stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
@@ -38,11 +41,17 @@ def main():
                 target_volumes, alarm_names, cloudwatch, ec2, sns
             )
         if args.update:
-            stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2)
+            stats["updated"] = update_alarms(
+                volume_ids, cloudwatch, ec2, volumes_without_alarm
+            )
 
     print(
         f"Volumes Processed: {len(volume_ids)}, Alarms Created: {stats['created']}, Alarms Updated: {stats['updated']}, Alarms Deleted: {stats['deleted']}"
     )
+    if volumes_without_alarm:
+        print(
+            f"The following volume(s) do not have an Impaired Volume Alarm: {', '.join(volumes_without_alarm)}"
+        )
 
 
 def initialize_aws_clients():
@@ -127,11 +136,11 @@ def check_sns_exists(sns):
             sys.exit(1)  # Stop the script here
 
 
-def update_alarms(volume_ids, cloudwatch, ec2):
+def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
     updated_count = 0
     for volume_id in volume_ids:
         if update_alarm_description(
-            volume_id, cloudwatch, ec2
+            volume_id, cloudwatch, ec2, volumes_without_alarm
         ):  # Assume it returns True if updated
             updated_count += 1
     return updated_count
@@ -287,29 +296,88 @@ def create_alarm(volume_id, cloudwatch, ec2, sns):
         )
 
 
-def update_alarm_description(volume_id, cloudwatch, ec2):
+def update_alarm_description(volume_id, cloudwatch, ec2, volumes_without_alarm):
     new_description = fetch_volume_info(volume_id, ec2)
 
     if new_description is None:
-        return
+        return False  # Indicate that the update was not successful
 
     alarm_name = "ImpairedVol_" + volume_id
 
     try:
-        existing_alarm = cloudwatch.describe_alarms(AlarmNames=[alarm_name])[
+        existing_alarms = cloudwatch.describe_alarms(AlarmNames=[alarm_name])[
             "MetricAlarms"
-        ][0]
+        ]
+        if len(existing_alarms) == 0:
+            logging.error(f"Alarm {alarm_name} not found.")
+            volumes_without_alarm.append(volume_id)
+            return False
 
-        # Only update if the description has changed
-        if existing_alarm["AlarmDescription"] != new_description:
-            existing_alarm["AlarmDescription"] = new_description
-            cloudwatch.put_metric_alarm(**existing_alarm)
-            logging.info(f"Updated description for alarm {alarm_name}")
-        else:
-            logging.info(f"The Alarm description for {alarm_name} has not changed.")
-
+        existing_alarm = existing_alarms[0]
+    except cloudwatch.exceptions.ResourceNotFoundException:
+        logging.error(f"Alarm {alarm_name} not found.")
+        return False
+    except cloudwatch.exceptions.ClientError as e:
+        logging.error(f"Failed to describe alarm {alarm_name}: {str(e)}")
+        return False
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(
+            f"An unknown error occurred while describing alarm {alarm_name}: {str(e)}"
+        )
+        return False
+
+    # Only update if the description has changed
+    if existing_alarm["AlarmDescription"] != new_description:
+        existing_alarm["AlarmDescription"] = new_description
+
+        # Only keep the keys that are actually needed for put_metric_alarm
+        valid_keys = [
+            "AlarmName",
+            "AlarmDescription",
+            "ActionsEnabled",
+            "OKActions",
+            "AlarmActions",
+            "InsufficientDataActions",
+            "MetricName",
+            "Namespace",
+            "Statistic",
+            "ExtendedStatistic",
+            "Period",
+            "Unit",
+            "EvaluationPeriods",
+            "DatapointsToAlarm",
+            "Threshold",
+            "ComparisonOperator",
+            "TreatMissingData",
+            "EvaluateLowSampleCountPercentile",
+            "Metrics",
+            "Tags",
+            "ThresholdMetricId",
+        ]
+        filtered_alarm = {
+            k: existing_alarm[k] for k in valid_keys if k in existing_alarm
+        }
+
+        # Remove Dimensions if Metrics is set
+        if "Metrics" in filtered_alarm:
+            filtered_alarm.pop("Dimensions", None)
+
+        try:
+            cloudwatch.put_metric_alarm(**filtered_alarm)
+            logging.info(f"Updated description for alarm {alarm_name}")
+            return True  # Indicate that the update was successful
+        except cloudwatch.exceptions.ClientError as e:
+            logging.error(
+                f"Failed to update alarm description for {alarm_name}: {str(e)}"
+            )
+        except Exception as e:
+            logging.error(
+                f"An unknown error occurred while updating alarm description for {alarm_name}: {str(e)}"
+            )
+        return False  # Indicate that the update was not successful
+    else:
+        logging.info(f"The Alarm description for {alarm_name} has not changed.")
+        return False  # Indicate that no update was necessary
 
 
 def fetch_volume_info(volume_id, ec2):
