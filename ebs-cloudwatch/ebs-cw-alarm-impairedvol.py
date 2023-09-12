@@ -3,17 +3,15 @@ import argparse
 import sys
 import logging
 
-# Change this to your SNS topic ARN.
+# Constants
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-PAGINATION_COUNT = 100  # number of items per Boto3 page call
+PAGINATION_COUNT = 100
 
 
 def main():
     args = parse_args()
-    if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
-        sys.exit(1)
 
+    # Initialize logging
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     elif args.verbose:
@@ -25,36 +23,28 @@ def main():
     volume_ids = get_all_volume_ids(ec2)
     alarm_names = get_all_alarm_names(cloudwatch)
 
-    # When --all and --update flags are both provided
-    if args.all and args.update:
-        logging.info("All Alarms Update Description")
-        for volume_id in volume_ids:
-            # handle_single_volume(volume_id, alarm_names, cloudwatch, ec2, sns, args)
-            handle_update(volume_id, cloudwatch, ec2, args)
-        return  # Exit after performing all actions
+    stats = {"created": 0, "updated": 0, "deleted": 0, "volumes_processed": 0}
 
-    # Handle individual flags
-    if args.volumeid:
-        logging.info("Volume ID")
-        handle_single_volume(args.volumeid, alarm_names, cloudwatch, ec2, sns, args)
+    if args.all:
+        stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
+        stats["created"] = create_alarms(
+            volume_ids, alarm_names, cloudwatch, ec2, sns, args
+        )
+        stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2, args)
+    else:
+        if args.cleanup:
+            stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
+        if args.create:
+            target_volumes = [args.volume_id] if args.volume_id else volume_ids
+            stats["created"] = create_alarms(
+                target_volumes, alarm_names, cloudwatch, ec2, sns, args
+            )
         if args.update:
-            handle_update(args.volumeid, cloudwatch, ec2, args)
+            stats["updated"] = update_alarms(volume_ids, cloudwatch, ec2, args)
 
-    if args.impaired_alarm_for_all_volumes or args.impaired_alarm_cleanup or args.all:
-        logging.info("Clean Up Alerts first")
-        cleanup_alarms(volume_ids, alarm_names, cloudwatch)
-        logging.info("All Volumes Create Alarm")
-        for volume_id in volume_ids:
-            handle_single_volume(volume_id, alarm_names, cloudwatch, ec2, sns, args)
-
-    if args.impaired_alarm_cleanup and args.all:
-        logging.info("All Alarms Cleanup")
-        cleanup_alarms(volume_ids, alarm_names, cloudwatch)
-
-    if args.update and not args.all:
-        logging.info("Update all alarm descriptions")
-        for volume_id in volume_ids:
-            handle_update(volume_id, cloudwatch, ec2, args)
+    print(
+        f"Volumes Processed: {len(volume_ids)}, Alarms Created: {stats['created']}, Alarms Updated: {stats['updated']}, Alarms Deleted: {stats['deleted']}"
+    )
 
 
 def initialize_aws_clients():
@@ -93,24 +83,24 @@ def get_all_alarm_names(cloudwatch):
 def handle_single_volume(volume_id, alarm_names, cloudwatch, ec2, sns, args):
     alarm_name = "ImpairedVol_" + volume_id
     if alarm_name not in alarm_names:
-        create_alarm(volume_id, cloudwatch, ec2, sns, args.verbose)
+        create_alarm(volume_id, cloudwatch, ec2, sns)
     else:
         logging.info(f"Alarm '{alarm_name}' already exists for volume {volume_id}")
         if args.update:
             logging.info(f"Updating Alarm '{alarm_name}' volume {volume_id}")
-            update_alarm_description(volume_id, cloudwatch, ec2, args.verbose)
+            update_alarm_description(volume_id, cloudwatch, ec2)
 
 
 def handle_update(volume_id, cloudwatch, ec2, args):
     try:
-        update_alarm_description(volume_id, cloudwatch, ec2, args.verbose)
+        update_alarm_description(volume_id, cloudwatch, ec2)
     except Exception as e:
         logging.error(
             f"An error occurred while updating alarm for volume {volume_id}: {e}"
         )
 
 
-def check_sns_exists(sns, verbose=False):
+def check_sns_exists(sns):
     logging.info(f"Checking if SNS topic {SNS_ALARM_ACTION_ARN} exists...")
     try:
         response = sns.get_topic_attributes(TopicArn=SNS_ALARM_ACTION_ARN)
@@ -139,8 +129,48 @@ def check_sns_exists(sns, verbose=False):
             sys.exit(1)  # Stop the script here
 
 
-def create_alarm(volume_id, cloudwatch, ec2, sns, verbose=False):
-    if not check_sns_exists(sns, verbose):
+def update_alarms(volume_ids, cloudwatch, ec2, args):
+    updated_count = 0
+    for volume_id in volume_ids:
+        if update_alarm_description(
+            volume_id, cloudwatch, ec2
+        ):  # Assume it returns True if updated
+            updated_count += 1
+    return updated_count
+
+
+def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
+    for alarm_name in alarm_names:
+        # Only consider alarms that start with 'ImpairedVol_'
+        if alarm_name.startswith("ImpairedVol_"):
+            # Extract volume ID from the alarm name
+            volume_id = alarm_name[len("ImpairedVol_") :]
+
+            if volume_id not in volume_ids:
+                logging.info(
+                    f"Deleting alarm {alarm_name} as volume {volume_id} no longer exists"
+                )
+                cloudwatch.delete_alarms(AlarmNames=[alarm_name])
+            else:
+                logging.info(
+                    f"No change to alarm {alarm_name} as volume {volume_id} still exists"
+                )
+
+
+def create_alarms(target_volumes, alarm_names, cloudwatch, ec2, sns, args):
+    created_count = 0
+    for volume_id in target_volumes:
+        alarm_name = "ImpairedVol_" + volume_id
+        if alarm_name not in alarm_names:
+            create_alarm(volume_id, cloudwatch, ec2, sns)
+            created_count += 1
+        else:
+            logging.info(f"CW Alarm {alarm_name} already exists.")
+    return created_count
+
+
+def create_alarm(volume_id, cloudwatch, ec2, sns):
+    if not check_sns_exists(sns):
         logging.error(
             f"Alarm creation failed due to invalid SNS ARN. Provided: {SNS_ALARM_ACTION_ARN}"
         )
@@ -219,6 +249,9 @@ def create_alarm(volume_id, cloudwatch, ec2, sns, verbose=False):
         ],
     }
     # Create the new alarm
+
+    logging.info(f"Creating alarm {alarm_name} for volume {volume_id}.")
+
     cloudwatch.put_metric_alarm(
         AlarmName=alarm_details["AlarmName"],
         AlarmActions=alarm_details["AlarmActions"],
@@ -236,26 +269,8 @@ def create_alarm(volume_id, cloudwatch, ec2, sns, verbose=False):
     )
 
 
-def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
-    for alarm_name in alarm_names:
-        # Only consider alarms that start with 'ImpairedVol_'
-        if alarm_name.startswith("ImpairedVol_"):
-            # Extract volume ID from the alarm name
-            volume_id = alarm_name[len("ImpairedVol_") :]
-
-            if volume_id not in volume_ids:
-                logging.info(
-                    f"Deleting alarm {alarm_name} as volume {volume_id} no longer exists"
-                )
-                cloudwatch.delete_alarms(AlarmNames=[alarm_name])
-            else:
-                logging.info(
-                    f"No change to alarm {alarm_name} as volume {volume_id} still exists"
-                )
-
-
-def update_alarm_description(volume_id, cloudwatch, ec2, verbose=False):
-    new_description = fetch_volume_info(volume_id, ec2, verbose)
+def update_alarm_description(volume_id, cloudwatch, ec2):
+    new_description = fetch_volume_info(volume_id, ec2)
 
     if new_description is None:
         return
@@ -279,7 +294,7 @@ def update_alarm_description(volume_id, cloudwatch, ec2, verbose=False):
         logging.error(f"An error occurred: {e}")
 
 
-def fetch_volume_info(volume_id, ec2, verbose=False):
+def fetch_volume_info(volume_id, ec2):
     try:
         # Fetch additional information about the EBS volume
         response = ec2.describe_volumes(VolumeIds=[volume_id])
@@ -305,40 +320,25 @@ def fetch_volume_info(volume_id, ec2, verbose=False):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Create CloudWatch Alarms for EBS Impaired Volumes."
+        description="Manage CloudWatch Alarms for EBS Impaired Volumes."
+    )
+    parser.add_argument("--volume-id", help="Specific volume id to operate on.")
+    parser.add_argument(
+        "--create", action="store_true", help="Create CloudWatch Alarms."
     )
     parser.add_argument(
-        "--volumeid",
-        help="The volume id to create or update the Impaired Volume CloudWatch Alert.",
+        "--cleanup", action="store_true", help="Cleanup CloudWatch Alarms."
     )
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print verbose output (logging of INFO level)",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Print debug level output (logging of DEBUG level)",
-    )
-    parser.add_argument(
-        "--impaired-alarm-for-all-volumes",
-        action="store_true",
-        help="Add Impaired Volume alarms for all volumes",
-    )
-    parser.add_argument(
-        "--impaired-alarm-cleanup",
-        action="store_true",
-        help="Remove Impaired Volume alarms for non-existent volumes",
+        "--update", action="store_true", help="Update CloudWatch Alarms."
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Perform create and remove operations: Add Impaired Volume alarms for all volumes and remove alarms for non-existent volumes",
+        help="Perform cleanup, create, and update operations.",
     )
-    parser.add_argument(
-        "--update", action="store_true", help="Update alarm descriptions"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Verbose logging.")
+    parser.add_argument("--debug", action="store_true", help="Debug logging.")
     return parser.parse_args()
 
 
