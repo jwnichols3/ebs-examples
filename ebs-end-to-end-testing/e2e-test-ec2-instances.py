@@ -16,23 +16,33 @@ def main():
     args = parse_args()
     init_logging(args)
 
+    ec2_client, ec2_resource = initialize_aws_clients(args.region)
+
     if args.launchrun_list:
-        list_unique_launch_runs(args.region)
+        list_unique_launch_runs(ec2_client=ec2_client, ec2_resource=ec2_resource)
         return
 
     if args.terminate:
-        terminate_instances_by_launch_run(args.terminate, args.region)
+        terminate_instances_by_launch_run(
+            launch_run_id=args.terminate,
+            ec2_client=ec2_client,
+            ec2_resource=ec2_resource,
+            no_wait=args.no_wait,
+        )
         return
 
     launch_instances(
-        args.instances,
-        args.volumes,
-        args.region,
-        args.az,
-        args.key,
-        args.sg,
-        args.vpc,
-        args.style,
+        instance_count=args.instances,
+        volume_count=args.volumes,
+        region=args.region,
+        az=args.az,
+        key_name=args.key,
+        security_group=args.sg,
+        vpc=args.vpc,
+        style=args.style,
+        ec2_client=ec2_client,
+        ec2_resource=ec2_resource,
+        quiet=args.quiet,
     )
 
 
@@ -65,10 +75,19 @@ def generate_launch_run_id():
     return str(uuid.uuid4())
 
 
-def terminate_instances_by_launch_run(launch_run_id, region):
-    ec2_resource = boto3.resource("ec2", region_name=region)
-    ec2_client = boto3.client("ec2", region_name=region)  # For volume operations
+def initialize_aws_clients(region):
+    try:
+        ec2_client = boto3.client("ec2", region_name=region)
+        ec2_resource = boto3.resource("ec2", region_name=region)
+        logging.info("Initilized AWS Client")
+    except Exception as e:
+        logging.error(f"Failed to initialize AWS clients: {e}")
+        sys.exit(1)  # Stop the script here
 
+    return ec2_client, ec2_resource
+
+
+def terminate_instances_by_launch_run(launch_run_id, ec2_client, ec2_resource, no_wait):
     instances = ec2_resource.instances.filter(
         Filters=[{"Name": "tag:LaunchRun", "Values": [launch_run_id]}]
     )
@@ -91,6 +110,24 @@ def terminate_instances_by_launch_run(launch_run_id, region):
     ec2_resource.instances.filter(InstanceIds=instance_ids).terminate()
     logging.info(f"\nTerminated instances for LaunchRun: {launch_run_id}")
 
+    if no_wait:
+        logging.info(
+            "Not waiting to validate termination of all instances. This can take several minutes."
+        )
+        return
+
+    all_terminated = False
+    while not all_terminated:
+        instances = ec2_resource.instances.filter(
+            Filters=[{"Name": "tag:LaunchRun", "Values": [launch_run_id]}]
+        )
+        statuses = [instance.state["Name"] for instance in instances]
+        all_terminated = all(status == "terminated" for status in statuses)
+        if not all_terminated:
+            logging.info("Waiting for all instances to terminate...")
+            time.sleep(10)
+    logging.info(f"All instances for LaunchRun: {launch_run_id} have been terminated.")
+
 
 def prompt_for_choice(options, prompt_message):
     for i, option in enumerate(options, 1):
@@ -99,69 +136,63 @@ def prompt_for_choice(options, prompt_message):
     return options[choice]
 
 
-def get_key_pairs(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_key_pairs()
+def get_key_pairs(ec2_client):
+    response = ec2_client.describe_key_pairs()
     return [key_pair["KeyName"] for key_pair in response["KeyPairs"]]
 
 
-def get_security_groups(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_security_groups()
+def get_security_groups(ec2_client):
+    response = ec2_client.describe_security_groups()
     return [f"{sg['GroupId']} - {sg['GroupName']}" for sg in response["SecurityGroups"]]
 
 
-def get_vpcs(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_vpcs()
+def get_vpcs(ec2_client):
+    response = ec2_client.describe_vpcs()
     return [vpc["VpcId"] for vpc in response["Vpcs"]]
 
 
-def get_vpcs_with_names(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_vpcs()
+def get_vpcs_with_names(ec2_client):
+    response = ec2_client.describe_vpcs()
     return [
         (vpc["VpcId"], vpc.get("Tags", [{}])[0].get("Value", "N/A"))
         for vpc in response["Vpcs"]
     ]
 
 
-def get_availability_zones_for_vpc(region, vpc_id):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+def get_availability_zones_for_vpc(ec2_client, vpc_id):
+    response = ec2_client.describe_subnets(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )
     azs = list(set(subnet["AvailabilityZone"] for subnet in response["Subnets"]))
     return azs
 
 
-def get_availability_zones(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_availability_zones()
+def get_availability_zones(ec2_client):
+    response = ec2_client.describe_availability_zones()
     return [az["ZoneName"] for az in response["AvailabilityZones"]]
 
 
-def get_subnets_for_vpc(region, vpc_id):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+def get_subnets_for_vpc(ec2_client, vpc_id):
+    response = ec2_client.describe_subnets(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )
     return [subnet["SubnetId"] for subnet in response["Subnets"]]
 
 
-def get_availability_zone_for_subnet(region, subnet_id):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_subnets(SubnetIds=[subnet_id])
+def get_availability_zone_for_subnet(ec2_client, subnet_id):
+    response = ec2_client.describe_subnets(SubnetIds=[subnet_id])
     return response["Subnets"][0]["AvailabilityZone"]
 
 
-def get_security_groups_for_vpc(region, vpc_id):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_security_groups(
+def get_security_groups_for_vpc(ec2_client, vpc_id):
+    response = ec2_client.describe_security_groups(
         Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
     )
     return [(sg["GroupId"], sg["GroupName"]) for sg in response["SecurityGroups"]]
 
 
-def get_subnet_id_for_az_and_vpc(region, az, vpc_id):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_subnets(
+def get_subnet_id_for_az_and_vpc(ec2_client, az, vpc_id):
+    response = ec2_client.describe_subnets(
         Filters=[
             {"Name": "availability-zone", "Values": [az]},
             {"Name": "vpc-id", "Values": [vpc_id]},
@@ -172,9 +203,8 @@ def get_subnet_id_for_az_and_vpc(region, az, vpc_id):
     return response["Subnets"][0]["SubnetId"]
 
 
-def get_latest_amazon_linux_ami(region):
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_images(
+def get_latest_amazon_linux_ami(ec2_client):
+    response = ec2_client.describe_images(
         Filters=[
             {"Name": "name", "Values": ["amzn2-ami-hvm-*"]},
             {"Name": "architecture", "Values": ["x86_64"]},
@@ -188,9 +218,9 @@ def get_latest_amazon_linux_ami(region):
     return amis[0]["ImageId"]
 
 
-def validate_sg_and_subnet(ec2, security_group, subnet_id):
-    sg_response = ec2.describe_security_groups(GroupIds=[security_group])
-    subnet_response = ec2.describe_subnets(SubnetIds=[subnet_id])
+def validate_sg_and_subnet(ec2_client, security_group, subnet_id):
+    sg_response = ec2_client.describe_security_groups(GroupIds=[security_group])
+    subnet_response = ec2_client.describe_subnets(SubnetIds=[subnet_id])
 
     sg_vpc = sg_response["SecurityGroups"][0]["VpcId"]
     subnet_vpc = subnet_response["Subnets"][0]["VpcId"]
@@ -199,10 +229,7 @@ def validate_sg_and_subnet(ec2, security_group, subnet_id):
         raise ValueError("Security group and subnet belong to different VPCs.")
 
 
-def list_unique_launch_runs(region):
-    ec2_resource = boto3.resource("ec2", region_name=region)
-    ec2_client = boto3.client("ec2", region_name=region)
-
+def list_unique_launch_runs(ec2_client, ec2_resource):
     # Fetching instances with LaunchRun tag and in 'running' state
     instances = ec2_resource.instances.filter(
         Filters=[
@@ -241,9 +268,14 @@ def list_unique_launch_runs(region):
     for launch_run in unique_launch_runs:
         print(f"- {launch_run}")
 
+    print("\nHere are the terminate options for each launch run: \n")
+
+    for launch_run_terminate in unique_launch_runs:
+        print(f"--terminate {launch_run_terminate}")
+
 
 def handle_user_inputs(
-    instance_count, volume_count, key_name, vpc, az, security_group, region
+    instance_count, volume_count, key_name, vpc, az, security_group, ec2_client
 ):
     if instance_count is None:
         instance_count = int(input("Please enter the number of instances: "))
@@ -251,21 +283,21 @@ def handle_user_inputs(
         volume_count = int(input("Please enter the number of volumes per instance: "))
     if key_name is None:
         key_name = prompt_for_choice(
-            get_key_pairs(region), "Please select a key pair (by number): "
+            get_key_pairs(ec2_client), "Please select a key pair (by number): "
         )
     if vpc is None:
         selected_option = prompt_for_choice(
-            get_vpcs_with_names(region), "Please select a VPC (by number): "
+            get_vpcs_with_names(ec2_client), "Please select a VPC (by number): "
         )
         vpc = selected_option[0]
     if az is None:
         az = prompt_for_choice(
-            get_availability_zones_for_vpc(region, vpc),
+            get_availability_zones_for_vpc(ec2_client, vpc),
             "Please select an availability zone (by number): ",
         )
     if security_group is None:
         selected_option = prompt_for_choice(
-            get_security_groups_for_vpc(region, vpc),
+            get_security_groups_for_vpc(ec2_client, vpc),
             "Please select a Security Group (by number): ",
         )
         security_group = selected_option[0]
@@ -273,9 +305,9 @@ def handle_user_inputs(
 
 
 def prepare_launch_params(
-    instance_count, volume_count, region, az, key_name, security_group, vpc
+    instance_count, volume_count, ec2_client, az, key_name, security_group, vpc
 ):
-    ami_id = get_latest_amazon_linux_ami(region)
+    ami_id = get_latest_amazon_linux_ami(ec2_client)
     block_device_mappings = []
     for i in range(volume_count):
         block_device_mappings.append(
@@ -288,9 +320,10 @@ def prepare_launch_params(
             }
         )
     user_data_script = get_user_data_script()
-    ec2 = boto3.client("ec2", region_name=region)
-    subnet_id = get_subnet_id_for_az_and_vpc(region, az, vpc)
-    validate_sg_and_subnet(ec2, security_group, subnet_id)
+    subnet_id = get_subnet_id_for_az_and_vpc(ec2_client=ec2_client, az=az, vpc_id=vpc)
+    validate_sg_and_subnet(
+        ec2_client=ec2_client, security_group=security_group, subnet_id=subnet_id
+    )
     launch_params = {
         "ImageId": ami_id,
         "InstanceType": "m5.large",
@@ -306,13 +339,12 @@ def prepare_launch_params(
     return launch_params
 
 
-def monitor_instance_status(instance_ids, region, style, key_name):
-    ec2 = boto3.client("ec2", region_name=region)
+def monitor_instance_status(instance_ids, ec2_client, style, key_name, quiet=False):
     all_running = False
     while not all_running:
         summary_table = []
         for instance_id in instance_ids:
-            response = ec2.describe_instances(InstanceIds=[instance_id])
+            response = ec2_client.describe_instances(InstanceIds=[instance_id])
             instance = response["Reservations"][0]["Instances"][0]
             status = instance["State"]["Name"]
             public_ip = instance.get("PublicIpAddress", "")
@@ -333,44 +365,58 @@ def monitor_instance_status(instance_ids, region, style, key_name):
             )
         all_running = all(row[1] == "running" for row in summary_table)
         if not all_running:
-            print("--- Progress Update ---")
-            print(
-                tabulate(
-                    summary_table,
-                    headers=[
-                        "Instance ID",
-                        "Status",
-                        "Public IP",
-                        "Private IP",
-                        "Terminate Command",
-                        "SSH Command",
-                    ],
-                    tablefmt=style,
+            if not quiet:
+                print("--- Progress Update ---")
+                print(
+                    tabulate(
+                        summary_table,
+                        headers=[
+                            "Instance ID",
+                            "Status",
+                            "Public IP",
+                            "Private IP",
+                            "Terminate Command",
+                            "SSH Command",
+                        ],
+                        tablefmt=style,
+                    )
                 )
-            )
             time.sleep(3)
-    print("=== Summary ===")
-    print(
-        tabulate(
-            summary_table,
-            headers=[
-                "Instance ID",
-                "Status",
-                "Public IP",
-                "Private IP",
-                "Terminate Command",
-                "SSH Command",
-            ],
-            tablefmt=style,
+    if not quiet:
+        print("=== Summary ===")
+        print(
+            tabulate(
+                summary_table,
+                headers=[
+                    "Instance ID",
+                    "Status",
+                    "Public IP",
+                    "Private IP",
+                    "Terminate Command",
+                    "SSH Command",
+                ],
+                tablefmt=style,
+            )
         )
-    )
 
 
 def launch_instances(
-    instance_count, volume_count, region, az, key_name, security_group, vpc, style
+    instance_count,
+    volume_count,
+    region,
+    az,
+    key_name,
+    security_group,
+    vpc,
+    style,
+    ec2_client,
+    ec2_resource,
+    quiet,
 ):
     launch_run_id = generate_launch_run_id()
     logging.info(f"LaunchRun ID: {launch_run_id}")
+    if quiet:
+        print(f"{launch_run_id}")
     (
         instance_count,
         volume_count,
@@ -379,10 +425,22 @@ def launch_instances(
         az,
         security_group,
     ) = handle_user_inputs(
-        instance_count, volume_count, key_name, vpc, az, security_group, region
+        instance_count=instance_count,
+        volume_count=volume_count,
+        key_name=key_name,
+        vpc=vpc,
+        az=az,
+        security_group=security_group,
+        ec2_client=ec2_client,
     )
     launch_params = prepare_launch_params(
-        instance_count, volume_count, region, az, key_name, security_group, vpc
+        instance_count=instance_count,
+        volume_count=volume_count,
+        ec2_client=ec2_client,
+        az=az,
+        key_name=key_name,
+        security_group=security_group,
+        vpc=vpc,
     )
     launch_params["TagSpecifications"] = [
         {
@@ -398,24 +456,29 @@ def launch_instances(
             ],
         },
     ]
-    ec2 = boto3.client("ec2", region_name=region)
     instance_ids = []
     for i in range(instance_count):
-        response = ec2.run_instances(**launch_params)
+        response = ec2_client.run_instances(**launch_params)
         instance_id = response["Instances"][0]["InstanceId"]
         instance_ids.append(instance_id)
-        print(f"Launched instance {i+1}: {instance_id}")
+        logging.info(f"Launched instance {i+1}: {instance_id}")
 
-    monitor_instance_status(instance_ids, region, style, key_name)
+    monitor_instance_status(
+        instance_ids=instance_ids,
+        ec2_client=ec2_client,
+        style=style,
+        key_name=key_name,
+        quiet=quiet,
+    )
 
     if logging.info:
         python_executable = sys.executable
         script_name = os.path.basename(__file__)
         comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --vpc {vpc} --az {az} --key {key_name} --sg {security_group}"
-        print(f"\n\nComparable CLI Command: {comparable_cli_command}")
+        logging.info(f"\n\nComparable CLI Command: {comparable_cli_command}")
 
-        print("\n\nTo terminate these instances, run the following command:")
-        print(f"{python_executable} {script_name} --terminate {launch_run_id}")
+        logging.info("\n\nTo terminate these instances, run the following command:")
+        logging.info(f"{python_executable} {script_name} --terminate {launch_run_id}")
 
 
 def parse_args():
@@ -452,6 +515,9 @@ def parse_args():
     )
     parser.add_argument(
         "--debug", action="store_true", help="Output debug information."
+    )
+    parser.add_argument(
+        "--no-wait", action="store_true", help="Do not wait for instances to terminate."
     )
 
     return parser.parse_args()
