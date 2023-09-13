@@ -9,7 +9,7 @@ import uuid
 from tabulate import tabulate
 import logging
 
-KEY_PATH = "~/.ssh"  # Path to SSH private key
+KEY_PATH = "~/.ssh"  # Path to SSH private key. The assumption is the file name and the AWS EC2 Key are the same. This is used to show a ssh command to access the Linux instance.
 
 
 def main():
@@ -34,6 +34,22 @@ def main():
         args.vpc,
         args.style,
     )
+
+
+def get_user_data_script():
+    user_data_script = """#!/bin/bash
+yum -y install fio
+for device_path in /dev/nvme1n*; do
+  # Random read/write I/O
+  fio --name=random-rw --ioengine=posixaio --rw=randrw --rwmixread=70 --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
+  # Sequential read/write I/O
+  fio --name=sequential-rw --ioengine=posixaio --rw=rw --bs=128k --numjobs=4 --size=1g --time_based --filename=$device_path &
+  # Random write I/O
+  fio --name=random-write --ioengine=posixaio --rw=randwrite --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
+  # Random read I/O
+  fio --name=random-read --ioengine=posixaio --rw=randread --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
+done"""
+    return user_data_script
 
 
 def init_logging(args):
@@ -226,56 +242,40 @@ def list_unique_launch_runs(region):
         print(f"- {launch_run}")
 
 
-def launch_instances(
-    instance_count, volume_count, region, az, key_name, security_group, vpc, style
+def handle_user_inputs(
+    instance_count, volume_count, key_name, vpc, az, security_group, region
 ):
-    ec2 = boto3.client("ec2", region_name=region)
-    launch_run_id = generate_launch_run_id()
-    logging.info(f"LaunchRun ID: {launch_run_id}")
-    if logging.error:
-        print(f"{launch_run_id}")
-
     if instance_count is None:
         instance_count = int(input("Please enter the number of instances: "))
-
     if volume_count is None:
         volume_count = int(input("Please enter the number of volumes per instance: "))
-
     if key_name is None:
         key_name = prompt_for_choice(
             get_key_pairs(region), "Please select a key pair (by number): "
         )
-
-    # Prompt for VPC if not provided
     if vpc is None:
         selected_option = prompt_for_choice(
             get_vpcs_with_names(region), "Please select a VPC (by number): "
         )
         vpc = selected_option[0]
-
-    all_subnets = get_subnets_for_vpc(region, vpc)
-
-    # Prompt for AZ if not provided
     if az is None:
         az = prompt_for_choice(
             get_availability_zones_for_vpc(region, vpc),
             "Please select an availability zone (by number): ",
         )
-
-    # Get all security groups for the chosen VPC
-    all_security_groups = get_security_groups_for_vpc(region, vpc)
-    # Prompt for Security Group if not provided
-
     if security_group is None:
         selected_option = prompt_for_choice(
-            all_security_groups, "Please select a Security Group (by number): "
+            get_security_groups_for_vpc(region, vpc),
+            "Please select a Security Group (by number): ",
         )
-        security_group = selected_option[0]  # Assuming selected_option is now a tuple
+        security_group = selected_option[0]
+    return instance_count, volume_count, key_name, vpc, az, security_group
 
-    subnet_id = get_subnet_id_for_az_and_vpc(region, az, vpc)
 
+def prepare_launch_params(
+    instance_count, volume_count, region, az, key_name, security_group, vpc
+):
     ami_id = get_latest_amazon_linux_ami(region)
-
     block_device_mappings = []
     for i in range(volume_count):
         block_device_mappings.append(
@@ -287,22 +287,10 @@ def launch_instances(
                 },
             }
         )
-
-    user_data_script = """#!/bin/bash
-yum -y install fio
-for device_path in /dev/nvme1n*; do
-  # Random read/write I/O
-  fio --name=random-rw --ioengine=posixaio --rw=randrw --rwmixread=70 --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-  # Sequential read/write I/O
-  fio --name=sequential-rw --ioengine=posixaio --rw=rw --bs=128k --numjobs=4 --size=1g --time_based --filename=$device_path &
-  # Random write I/O
-  fio --name=random-write --ioengine=posixaio --rw=randwrite --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-  # Random read I/O
-  fio --name=random-read --ioengine=posixaio --rw=randread --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-done"""
-
+    user_data_script = get_user_data_script()
+    ec2 = boto3.client("ec2", region_name=region)
+    subnet_id = get_subnet_id_for_az_and_vpc(region, az, vpc)
     validate_sg_and_subnet(ec2, security_group, subnet_id)
-
     launch_params = {
         "ImageId": ami_id,
         "InstanceType": "m5.large",
@@ -311,8 +299,91 @@ done"""
         "Placement": {"AvailabilityZone": az},
         "UserData": base64.b64encode(user_data_script.encode()).decode(),
         "BlockDeviceMappings": block_device_mappings,
+        "SubnetId": subnet_id,
+        "KeyName": key_name,
+        "SecurityGroupIds": [security_group],
     }
+    return launch_params
 
+
+def monitor_instance_status(instance_ids, region, style, key_name):
+    ec2 = boto3.client("ec2", region_name=region)
+    all_running = False
+    while not all_running:
+        summary_table = []
+        for instance_id in instance_ids:
+            response = ec2.describe_instances(InstanceIds=[instance_id])
+            instance = response["Reservations"][0]["Instances"][0]
+            status = instance["State"]["Name"]
+            public_ip = instance.get("PublicIpAddress", "")
+            private_ip = instance["PrivateIpAddress"]
+            terminate_command = (
+                f"aws ec2 terminate-instances --instance-ids {instance_id}"
+            )
+            ssh_command = f"ssh -i {KEY_PATH}/{key_name}.pem ec2-user@{public_ip}"
+            summary_table.append(
+                (
+                    instance_id,
+                    status,
+                    public_ip,
+                    private_ip,
+                    terminate_command,
+                    ssh_command,
+                )
+            )
+        all_running = all(row[1] == "running" for row in summary_table)
+        if not all_running:
+            print("--- Progress Update ---")
+            print(
+                tabulate(
+                    summary_table,
+                    headers=[
+                        "Instance ID",
+                        "Status",
+                        "Public IP",
+                        "Private IP",
+                        "Terminate Command",
+                        "SSH Command",
+                    ],
+                    tablefmt=style,
+                )
+            )
+            time.sleep(3)
+    print("=== Summary ===")
+    print(
+        tabulate(
+            summary_table,
+            headers=[
+                "Instance ID",
+                "Status",
+                "Public IP",
+                "Private IP",
+                "Terminate Command",
+                "SSH Command",
+            ],
+            tablefmt=style,
+        )
+    )
+
+
+def launch_instances(
+    instance_count, volume_count, region, az, key_name, security_group, vpc, style
+):
+    launch_run_id = generate_launch_run_id()
+    logging.info(f"LaunchRun ID: {launch_run_id}")
+    (
+        instance_count,
+        volume_count,
+        key_name,
+        vpc,
+        az,
+        security_group,
+    ) = handle_user_inputs(
+        instance_count, volume_count, key_name, vpc, az, security_group, region
+    )
+    launch_params = prepare_launch_params(
+        instance_count, volume_count, region, az, key_name, security_group, vpc
+    )
     launch_params["TagSpecifications"] = [
         {
             "ResourceType": "instance",
@@ -327,114 +398,24 @@ done"""
             ],
         },
     ]
-
-    launch_params["SubnetId"] = subnet_id
-
-    if key_name:
-        launch_params["KeyName"] = key_name
-
-    if security_group:
-        launch_params["SecurityGroupIds"] = [security_group]
-
+    ec2 = boto3.client("ec2", region_name=region)
     instance_ids = []
     for i in range(instance_count):
         response = ec2.run_instances(**launch_params)
         instance_id = response["Instances"][0]["InstanceId"]
         instance_ids.append(instance_id)
-        print(f"Launched instance {instance_id}")
+        print(f"Launched instance {i+1}: {instance_id}")
 
-    print("\nMonitoring instance status:")
+    monitor_instance_status(instance_ids, region, style, key_name)
 
-    all_running = False
-    while not all_running:
-        summary_table = []
-        for instance_id in instance_ids:
-            max_retries = 10
-            retries = 0
-
-            while retries < max_retries:
-                try:
-                    response = ec2.describe_instances(InstanceIds=[instance_id])
-                    break  # Successful describe, break the loop
-                except botocore.exceptions.ClientError as e:
-                    if "InvalidInstanceID.NotFound" in str(e):
-                        logging.info(
-                            f"Instance {instance_id} not found yet, retrying..."
-                        )
-                        time.sleep(5)
-                        retries += 1
-                    else:
-                        raise  # Any other exception should be raised
-
-            response = ec2.describe_instances(InstanceIds=[instance_id])
-            instance = response["Reservations"][0]["Instances"][0]
-            status = instance["State"]["Name"]
-            public_ip = instance.get("PublicIpAddress", "")
-            private_ip = instance["PrivateIpAddress"]
-            terminate_command = (
-                f"aws ec2 terminate-instances --instance-ids {instance_id}"
-            )
-            ssh_command = (
-                f"ssh -i {KEY_PATH}/{key_name}.pem ec2-user@{public_ip}"
-                if public_ip
-                else ""
-            )
-            summary_table.append(
-                (
-                    instance_id,
-                    status,
-                    public_ip,
-                    private_ip,
-                    terminate_command,
-                    ssh_command,
-                )
-            )
-
-        logging.info(
-            "\n--- Progress Update ---\n"
-            + tabulate(
-                summary_table,
-                headers=[
-                    "Instance ID",
-                    "Status",
-                    "Public IP",
-                    "Private IP",
-                    "Terminate Command",
-                    "SSH Command",
-                ],
-                tablefmt=style,
-            )
-        )
-
-        all_running = all(row[1] == "running" for row in summary_table)
-
-        if not all_running:  # Only sleep if not all instances are running
-            time.sleep(10)
-
-    logging.info(
-        "\n=== Summary ===\n"
-        + tabulate(
-            summary_table,
-            headers=[
-                "Instance ID",
-                "Status",
-                "Public IP",
-                "Private IP",
-                "Terminate Command",
-                "SSH Command",
-            ],
-            tablefmt=style,
-        )
-    )
     if logging.info:
         python_executable = sys.executable
         script_name = os.path.basename(__file__)
+        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --vpc {vpc} --az {az} --key {key_name} --sg {security_group}"
+        print(f"\n\nComparable CLI Command: {comparable_cli_command}")
+
         print("\n\nTo terminate these instances, run the following command:")
         print(f"{python_executable} {script_name} --terminate {launch_run_id}")
-        print("\n\nTo re-launch instances with the same configuration:")
-        print(
-            f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --az {az} --key {key_name} --sg {security_group} --vpc {vpc}"
-        )
 
 
 def parse_args():
