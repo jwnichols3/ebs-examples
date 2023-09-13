@@ -184,17 +184,23 @@ def validate_sg_and_subnet(ec2, security_group, subnet_id):
 
 
 def list_unique_launch_runs(region):
-    ec2 = boto3.resource("ec2", region_name=region)
+    ec2_resource = boto3.resource("ec2", region_name=region)
+    ec2_client = boto3.client("ec2", region_name=region)
 
-    # Fetching instances with LaunchRun tag
-    instances = ec2.instances.filter(
-        Filters=[{"Name": "tag-key", "Values": ["LaunchRun"]}]
+    # Fetching instances with LaunchRun tag and in 'running' state
+    instances = ec2_resource.instances.filter(
+        Filters=[
+            {"Name": "tag-key", "Values": ["LaunchRun"]},
+            {"Name": "instance-state-name", "Values": ["running"]},
+        ]
     )
 
-    # Fetching volumes with LaunchRun tag
-    ec2 = boto3.client("ec2", region_name=region)
-    response = ec2.describe_volumes(
-        Filters=[{"Name": "tag-key", "Values": ["LaunchRun"]}]
+    # Fetching volumes with LaunchRun tag and in 'in-use' state
+    response = ec2_client.describe_volumes(
+        Filters=[
+            {"Name": "tag-key", "Values": ["LaunchRun"]},
+            {"Name": "status", "Values": ["in-use"]},
+        ]
     )
 
     unique_launch_runs = set()
@@ -212,10 +218,10 @@ def list_unique_launch_runs(region):
                 unique_launch_runs.add(tag["Value"])
 
     if not unique_launch_runs:
-        print("No LaunchRuns found.")
-        logging.error("No LaunchRuns found.")
+        print("No active LaunchRuns found.")
+        logging.error("No active LaunchRuns found.")
         return
-    print("Unique LaunchRun IDs:")
+    print("Unique active LaunchRun IDs:")
     for launch_run in unique_launch_runs:
         print(f"- {launch_run}")
 

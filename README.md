@@ -34,7 +34,7 @@ The [terraform-ebs-cw-latency-custom-metric](./terraform-ebs-cw-latency-custom-m
 
 ## EBS Mini Load Testing and Fault Injection Testing
 
-The [ebs-mini-load-testing-fis](./ebs-mini-load-testing-fis/) folder contains scripts to launch EC2 instances with EBS volumes that use `fio` to perform mini load tests against EBS volumes by reading and writing random data. This allows validating that CloudWatch alarms and dashboards react as expected when volumes become impaired. There is a subfolder that includes the AWS Fault Injection Simulator configuration to inject faults.
+The [ebs-end-to-end-testing](./ebs-end-to-end-testing/) folder contains scripts to launch EC2 instances with EBS volumes. There are examples of using `fio` to perform load tests against EBS volumes by reading and writing random data. This allows validating that CloudWatch alarms and dashboards react as expected when volumes become impaired. There is a subfolder that includes the AWS Fault Injection Simulator configuration to inject faults. Note: this is going through revisions to do end-to-end testing for CloudWatch Alarm deploymennt, and more.
 
 # EBS Utils Python Script
 
