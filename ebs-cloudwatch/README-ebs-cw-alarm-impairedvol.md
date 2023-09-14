@@ -45,6 +45,22 @@ SNS Permissions:
 
 ## Details about the Main Options
 
+### CONSTANTS
+
+These are the constants used in the script.
+
+- _INCLUDE_OK_ACTION_: A boolean flag that, when set to True, will include the "OK" state change of the CloudWatch Alarm in the SNS notifications. If set to False, only the "ALARM" state changes will trigger SNS notifications.
+
+- _SNS_OK_ACTION_ARN_: The Amazon Resource Name (ARN) for the SNS topic to which "OK" state changes should be published. This is used only if INCLUDE_OK_ACTION is set to True.
+
+- _SNS_ALARM_ACTION_ARN_: The ARN for the SNS topic to which "ALARM" state changes should be published.
+
+- _PAGINATION_COUNT_: The maximum number of results to return in each paginated AWS API call for describing volumes or CloudWatch alarms.
+
+- _ALARM_EVALUATION_TIME_: The period, in seconds, over which the CloudWatch metric data points are evaluated against the alarm conditions.
+
+- _METRIC_PERIOD_: The granularity, in seconds, of the returned CloudWatch metric data points. In this script, it is set to be the same as ALARM_EVALUATION_TIME.
+
 ### `--create` Option
 
 When the script is run with the `--create` option, it performs the following actions:

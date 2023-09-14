@@ -4,11 +4,12 @@ import sys
 import logging
 
 # Constants
+INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
+SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # You only need to set this if the INCLUDE_OK_ACTION is True
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-SNS_OK_ACTION_ARN = SNS_ALARM_ACTION_ARN  # TODO - Add error check logic and abstraction for these constants
 PAGINATION_COUNT = 100
-ALARM_EVALUATION_TIME = 120
-METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same for now.
+ALARM_EVALUATION_TIME = 60
+METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
 
 
 def main():
@@ -31,8 +32,14 @@ def main():
 
     # Check SNS existence here only for --all and --create
     if args.all or args.create:
-        if not check_sns_exists(sns=sns):
+        if not check_sns_exists(sns=sns, sns_topic_arn=SNS_ALARM_ACTION_ARN):
             logging.error(f"Invalid SNS ARN provided: {SNS_ALARM_ACTION_ARN}. Exiting.")
+            sys.exit(1)  # Stop the script here
+
+        if INCLUDE_OK_ACTION and not check_sns_exists(
+            sns=sns, sns_topic_arn=SNS_OK_ACTION_ARN
+        ):
+            logging.error(f"Invalid SNS ARN provided: {SNS_OK_ACTION_ARN}. Exiting.")
             sys.exit(1)  # Stop the script here
 
     if args.all:
@@ -162,21 +169,21 @@ def handle_update(volume_id, cloudwatch, ec2):
         )
 
 
-def check_sns_exists(sns):
-    logging.info(f"Checking if SNS topic {SNS_ALARM_ACTION_ARN} exists...")
+def check_sns_exists(sns, sns_topic_arn):
+    logging.info(f"Checking if SNS topic {sns_topic_arn} exists...")
     try:
-        response = sns.get_topic_attributes(TopicArn=SNS_ALARM_ACTION_ARN)
+        response = sns.get_topic_attributes(TopicArn=sns_topic_arn)
         return True
     except sns.exceptions.AuthorizationErrorException:
         logging.error(
-            f"The script does not have the necessary permissions to check if the SNS topic at ARN {SNS_ALARM_ACTION_ARN} exists."
+            f"The script does not have the necessary permissions to check if the SNS topic at ARN {sns_topic_arn} exists."
         )
         sys.exit(1)  # Stop the script here
     except sns.exceptions.NotFoundException:
         try:
             response = sns.list_topics()
             logging.error(
-                "The provided SNS ARN does not exist. Here are the existing topics: "
+                f"The provided SNS ARN {sns_topic_arn} does not exist. Here are the existing topics: "
             )
             for topic in response["Topics"]:
                 logging.error(topic["TopicArn"])
@@ -246,27 +253,12 @@ def create_alarms(target_volumes, alarm_names, cloudwatch, ec2):
 
 
 def create_alarm(volume_id, cloudwatch, ec2):
-    # Fetch additional information about the EBS volume
-    #    response = ec2.describe_volumes(VolumeIds=[volume_id])
-    #   volume_info = response["Volumes"][0]
-    #    tags = volume_info.get("Tags", [])
-    #    availability_zone = volume_info["AvailabilityZone"]
-
-    # Convert tags to a string format suitable for inclusion in the alarm description
-    #    tag_string = ", ".join([f"{tag['Key']}:{tag['Value']}" for tag in tags])
-
-    # Create a more detailed alarm description
-    #    alarm_description = (
-    #        f"Alarm for EBS volume {volume_id} in {availability_zone}. Tags: {tag_string}"
-    #    )
-
     alarm_description = generate_alarm_description(volume_id=volume_id, ec2=ec2)
 
     alarm_name = "ImpairedVol_" + volume_id
     alarm_details = {
         "AlarmName": alarm_name,
         "AlarmActions": [SNS_ALARM_ACTION_ARN],
-        "OKActions": [SNS_OK_ACTION_ARN],
         "EvaluationPeriods": 1,
         "DatapointsToAlarm": 1,
         "Threshold": 1.0,
@@ -322,22 +314,40 @@ def create_alarm(volume_id, cloudwatch, ec2):
             },
         ],
     }
-    # Create the new alarm
+    if INCLUDE_OK_ACTION:
+        alarm_details.append = {
+            "OKActions": [SNS_OK_ACTION_ARN],
+        }
 
     logging.info(f"Creating alarm {alarm_name} for volume {volume_id}.")
 
+    # Create the new alarm
     try:
-        cloudwatch.put_metric_alarm(
-            AlarmName=alarm_details["AlarmName"],
-            AlarmActions=alarm_details["AlarmActions"],
-            AlarmDescription=alarm_details["AlarmDescription"],
-            EvaluationPeriods=alarm_details["EvaluationPeriods"],
-            DatapointsToAlarm=alarm_details["DatapointsToAlarm"],
-            Threshold=alarm_details["Threshold"],
-            ComparisonOperator=alarm_details["ComparisonOperator"],
-            TreatMissingData=alarm_details["TreatMissingData"],
-            Metrics=alarm_details["Metrics"],
-        )
+        if INCLUDE_OK_ACTION:
+            cloudwatch.put_metric_alarm(
+                AlarmName=alarm_details["AlarmName"],
+                OKActions=alarm_details["OKActions"],
+                AlarmActions=alarm_details["AlarmActions"],
+                AlarmDescription=alarm_details["AlarmDescription"],
+                EvaluationPeriods=alarm_details["EvaluationPeriods"],
+                DatapointsToAlarm=alarm_details["DatapointsToAlarm"],
+                Threshold=alarm_details["Threshold"],
+                ComparisonOperator=alarm_details["ComparisonOperator"],
+                TreatMissingData=alarm_details["TreatMissingData"],
+                Metrics=alarm_details["Metrics"],
+            )
+        else:
+            cloudwatch.put_metric_alarm(
+                AlarmName=alarm_details["AlarmName"],
+                AlarmActions=alarm_details["AlarmActions"],
+                AlarmDescription=alarm_details["AlarmDescription"],
+                EvaluationPeriods=alarm_details["EvaluationPeriods"],
+                DatapointsToAlarm=alarm_details["DatapointsToAlarm"],
+                Threshold=alarm_details["Threshold"],
+                ComparisonOperator=alarm_details["ComparisonOperator"],
+                TreatMissingData=alarm_details["TreatMissingData"],
+                Metrics=alarm_details["Metrics"],
+            )
 
         logging.info(
             f"New alarm '{alarm_details['AlarmName']}' created for volume {volume_id}"
