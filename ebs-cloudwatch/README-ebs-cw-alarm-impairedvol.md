@@ -2,7 +2,7 @@
 
 ## Overview
 
-This Python script is designed to manage AWS CloudWatch Alarms for EBS (Elastic Block Store) volumes.
+This Python script is designed to manage AWS CloudWatch Impaired Volume Alarms for EBS (Elastic Block Store) volumes.
 
 The script provides functionalities to create, update, and clean up CloudWatch Alarms for EBS volumes in an impaired state.
 
