@@ -7,6 +7,8 @@ import logging
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
 SNS_OK_ACTION_ARN = SNS_ALARM_ACTION_ARN  # TODO - Add error check logic and abstraction for these constants
 PAGINATION_COUNT = 100
+ALARM_EVALUATION_TIME = 120
+METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same for now.
 
 
 def main():
@@ -277,6 +279,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                 "Expression": "IF(m3>0 AND m1+m2==0, 1, 0)",
                 "Label": "ImpairedVolume",
                 "ReturnData": True,
+                "Period": ALARM_EVALUATION_TIME,
             },
             {
                 "Id": "m3",
@@ -286,7 +289,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeQueueLength",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 60,
+                    "Period": METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -299,7 +302,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeReadOps",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 60,
+                    "Period": METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -312,7 +315,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeWriteBytes",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 60,
+                    "Period": METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
