@@ -12,6 +12,8 @@ Please note: These scripts are intended for educational purposes and are not rec
 
 These are the Python scripts included in this repository. More details of each script are provided below.
 
+## ebs-cloudwatch directory
+
 `ebs-cw-alarm-impairedvol.py`
 
 This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
@@ -42,7 +44,7 @@ This Python script collects CloudWatch metrics required to calculate Read and Wr
 
 Note: the difference between the `-batch` and non batch version are included to show you the difference between cycling through each volume individually vs batch processing all volumes at once. Batch processing is more efficient for large fleets but the non-batch version may be easier to follow from a code perspective.
 
-# CloudWatch Dashboard Examples
+## CloudWatch Dashboard Examples in ebs-cloudwatch directory
 
 This folder also contains example CloudWatch dashboard JSON files that visualize EBS metrics including latency. These dashboards leverage the custom latency metrics created by the Python scripts.
 
@@ -65,63 +67,9 @@ The Alert name has a pattern `ImpairedVol_{volume-id}`
 
 Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm notifications.
 
-An Impaired Volume is determined by looking for (ReadOps + WriteOps = 0) and Queue Lenght > 0 for 5 minutes. (the number of minutes is adjustable)
+An Impaired Volume is determined by looking for `(ReadOps + WriteOps = 0)` and `Queue Lenght > 0` for `5 minutes. (the number of minutes is adjustable)
 
-### Python Requirements
-
-- Python 3.6+
-- Boto3 (AWS SDK for Python)
-- Argparse
-
-### Python Module Installation
-
-Ensure that you have Python 3.6+ installed, along with Boto3 and Argparse. You can install Boto3 with pip:
-
-`pip install boto3`
-`pip install argparse`
-
-### AWS Access Permissions
-
-_CloudWatch Permissions:_
-
-- `cloudwatch:PutMetricAlarm`: This permission is required to create a new alarm.
-- `cloudwatch:DeleteAlarms`: This permission is required to delete alarms.
-- `cloudwatch:DescribeAlarms`: This permission is required to retrieve information about the current alarms.
-
-_EC2 Permissions_
-
-- `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
-
-SNS Permissions:
-
-- `sns:GetTopicAttributes`: This permission is required to retrieve the attributes of the SNS topic.
-- `sns:ListTopics`: This permission is required to list all the SNS topics in your AWS account.
-
-### Usage
-
-You can run the script from the command line with the following syntax:
-
-`python ebs-cw-alarm-impairedvol.py [arguments]`
-
-### Arguments
-
-- `--volumeid`: Specify the ID of a new EBS volume to create an alarm for.
-- `--verbose`: Enable verbose output.
-- `--impaired-alarm-for-all-volumes`: Create impaired volume alarms for all EBS volumes.
-- `--impaired-alarm-cleanup`: Remove impaired volume alarms for non-existent volumes.
-- `--all`: Perform all operations: add impaired volume alarms for all volumes and remove alarms for non-existent volumes.
-
-If the script is run without any arguments, it will display help output.
-
-### Examples
-
-To create a impaired volume alarm for a specific EBS volume:
-
-`python ebs-cw-alarm-impairedvol.py --volumeid vol-0abcdefgh123`
-
-To create impaired volume alarms for all EBS volumes and to remove alarms for volumes that no longer exist:
-
-`python ebs-cw-alarm-impairedvol.py --all`
+Additional details are in [README-ebs-cw-alarm-impairedvol](README-ebs-cw-alarm-impairedvol.md).
 
 ## ebs-cw-custom-metric-latency-batch.py and ebs-cw-custom-metric-latency.py
 
