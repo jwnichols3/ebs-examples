@@ -5,6 +5,7 @@ import logging
 
 # Constants
 SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+SNS_OK_ACTION_ARN = SNS_ALARM_ACTION_ARN  # TODO - Add error check logic and abstraction for these constants
 PAGINATION_COUNT = 100
 
 
@@ -244,23 +245,26 @@ def create_alarms(target_volumes, alarm_names, cloudwatch, ec2):
 
 def create_alarm(volume_id, cloudwatch, ec2):
     # Fetch additional information about the EBS volume
-    response = ec2.describe_volumes(VolumeIds=[volume_id])
-    volume_info = response["Volumes"][0]
-    tags = volume_info.get("Tags", [])
-    availability_zone = volume_info["AvailabilityZone"]
+    #    response = ec2.describe_volumes(VolumeIds=[volume_id])
+    #   volume_info = response["Volumes"][0]
+    #    tags = volume_info.get("Tags", [])
+    #    availability_zone = volume_info["AvailabilityZone"]
 
     # Convert tags to a string format suitable for inclusion in the alarm description
-    tag_string = ", ".join([f"{tag['Key']}:{tag['Value']}" for tag in tags])
+    #    tag_string = ", ".join([f"{tag['Key']}:{tag['Value']}" for tag in tags])
 
     # Create a more detailed alarm description
-    alarm_description = (
-        f"Alarm for EBS volume {volume_id} in {availability_zone}. Tags: {tag_string}"
-    )
+    #    alarm_description = (
+    #        f"Alarm for EBS volume {volume_id} in {availability_zone}. Tags: {tag_string}"
+    #    )
+
+    alarm_description = generate_alarm_description(volume_id=volume_id, ec2=ec2)
 
     alarm_name = "ImpairedVol_" + volume_id
     alarm_details = {
         "AlarmName": alarm_name,
         "AlarmActions": [SNS_ALARM_ACTION_ARN],
+        "OKActions": [SNS_OK_ACTION_ARN],
         "EvaluationPeriods": 1,
         "DatapointsToAlarm": 1,
         "Threshold": 1.0,
@@ -282,7 +286,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeQueueLength",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 300,
+                    "Period": 60,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -295,7 +299,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeReadOps",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 300,
+                    "Period": 60,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -308,7 +312,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeWriteBytes",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 300,
+                    "Period": 60,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
