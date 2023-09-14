@@ -19,30 +19,54 @@ def main():
     else:
         logging.basicConfig(level=logging.WARNING)
 
-    ec2, cloudwatch, sns = initialize_aws_clients()
-    volume_ids = get_all_volume_ids(ec2)
-    alarm_names = get_all_alarm_names(cloudwatch)
+    ec2, cloudwatch, sns = initialize_aws_clients(args.region)
+    volume_ids = get_all_volume_ids(ec2=ec2)
+    alarm_names = get_all_alarm_names(cloudwatch=cloudwatch)
 
     stats = {"created": 0, "updated": 0, "deleted": 0, "volumes_processed": 0}
     volumes_without_alarm = []
 
+    # Check SNS existence here only for --all and --create
+    if args.all or args.create:
+        if not check_sns_exists(sns=sns):
+            logging.error(f"Invalid SNS ARN provided: {SNS_ALARM_ACTION_ARN}. Exiting.")
+            sys.exit(1)  # Stop the script here
+
     if args.all:
-        stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
-        stats["created"] = create_alarms(volume_ids, alarm_names, cloudwatch, ec2, sns)
+        stats["deleted"] = cleanup_alarms(
+            volume_ids=volume_ids, alarm_names=alarm_names, cloudwatch=cloudwatch
+        )
+        stats["created"] = create_alarms(
+            target_volumes=volume_ids,
+            alarm_names=alarm_names,
+            cloudwatch=cloudwatch,
+            ec2=ec2,
+        )
         stats["updated"] = update_alarms(
-            volume_ids, cloudwatch, ec2, volumes_without_alarm
+            volume_ids=volume_ids,
+            cloudwatch=cloudwatch,
+            ec2=ec2,
+            volumes_without_alarm=volumes_without_alarm,
         )
     else:
         if args.cleanup:
-            stats["deleted"] = cleanup_alarms(volume_ids, alarm_names, cloudwatch)
+            stats["deleted"] = cleanup_alarms(
+                volume_ids=volume_ids, alarm_names=alarm_names, cloudwatch=cloudwatch
+            )
         if args.create:
             target_volumes = [args.volume_id] if args.volume_id else volume_ids
             stats["created"] = create_alarms(
-                target_volumes, alarm_names, cloudwatch, ec2, sns
+                target_volumes=target_volumes,
+                alarm_names=alarm_names,
+                cloudwatch=cloudwatch,
+                ec2=ec2,
             )
         if args.update:
             stats["updated"] = update_alarms(
-                volume_ids, cloudwatch, ec2, volumes_without_alarm
+                volume_ids=volume_ids,
+                cloudwatch=cloudwatch,
+                ec2=ec2,
+                volumes_without_alarm=volumes_without_alarm,
             )
 
     print(
@@ -54,12 +78,38 @@ def main():
         )
 
 
-def initialize_aws_clients():
+def generate_alarm_description(volume_id, ec2):
+    volume_details = fetch_volume_info(volume_id=volume_id, ec2=ec2)
+
+    volume_id = volume_details.get("volume_id", "N/A")
+    availability_zone = volume_details.get("availability_zone", "N/A")
+    tags_dict = volume_details.get("tags_dict", {})
+    attached_instance_id = volume_details.get("attached_instance_id", "")
+    attached_instance_name = volume_details.get("attached_instance_name", "")
+
+    alarm_description = f"Alarm for EBS volume {volume_id} in {availability_zone}."
+
+    launch_run_tag = tags_dict.get("LaunchRun", "")
+    if launch_run_tag:
+        alarm_description += f"\nLaunchRun: {launch_run_tag}"
+    else:
+        tag_string = ", ".join([f"{k}:{v}" for k, v in tags_dict.items()])
+        alarm_description += f"\nTags: {tag_string}"
+
+    if attached_instance_id and attached_instance_name:
+        alarm_description += f"\nAttached to Instance ID: {attached_instance_id}, Instance Name: {attached_instance_name}"
+    elif attached_instance_id:
+        alarm_description += f"\nAttached to Instance ID: {attached_instance_id}"
+
+    return alarm_description
+
+
+def initialize_aws_clients(region):
     try:
-        ec2 = boto3.client("ec2")
-        cloudwatch = boto3.client("cloudwatch")
-        sns = boto3.client("sns")
-        logging.info("Initilized AWS Client")
+        ec2 = boto3.client("ec2", region_name=region)
+        cloudwatch = boto3.client("cloudwatch", region_name=region)
+        sns = boto3.client("sns", region_name=region)
+        logging.info(f"Initilized AWS Client in region {region}")
     except Exception as e:
         logging.error(f"Failed to initialize AWS clients: {e}")
         sys.exit(1)  # Stop the script here
@@ -90,17 +140,19 @@ def get_all_alarm_names(cloudwatch):
 def handle_single_volume(volume_id, alarm_names, cloudwatch, ec2, sns, args):
     alarm_name = "ImpairedVol_" + volume_id
     if alarm_name not in alarm_names:
-        create_alarm(volume_id, cloudwatch, ec2, sns)
+        create_alarm(volume_id=volume_id, cloudwatch=cloudwatch, ec2=ec2, sns=sns)
     else:
         logging.info(f"Alarm '{alarm_name}' already exists for volume {volume_id}")
         if args.update:
             logging.info(f"Updating Alarm '{alarm_name}' volume {volume_id}")
-            update_alarm_description(volume_id, cloudwatch, ec2)
+            update_alarm_description(
+                volume_id=volume_id, cloudwatch=cloudwatch, ec2=ec2
+            )
 
 
-def handle_update(volume_id, cloudwatch, ec2, args):
+def handle_update(volume_id, cloudwatch, ec2):
     try:
-        update_alarm_description(volume_id, cloudwatch, ec2)
+        update_alarm_description(volume_id=volume_id, cloudwatch=cloudwatch, ec2=ec2)
     except Exception as e:
         logging.error(
             f"An error occurred while updating alarm for volume {volume_id}: {e}"
@@ -140,7 +192,10 @@ def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
     updated_count = 0
     for volume_id in volume_ids:
         if update_alarm_description(
-            volume_id, cloudwatch, ec2, volumes_without_alarm
+            volume_id=volume_id,
+            cloudwatch=cloudwatch,
+            ec2=ec2,
+            volumes_without_alarm=volumes_without_alarm,
         ):  # Assume it returns True if updated
             updated_count += 1
     return updated_count
@@ -175,25 +230,19 @@ def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
     return deleted_count
 
 
-def create_alarms(target_volumes, alarm_names, cloudwatch, ec2, sns):
+def create_alarms(target_volumes, alarm_names, cloudwatch, ec2):
     created_count = 0
     for volume_id in target_volumes:
         alarm_name = "ImpairedVol_" + volume_id
         if alarm_name not in alarm_names:
-            create_alarm(volume_id, cloudwatch, ec2, sns)
+            create_alarm(volume_id=volume_id, cloudwatch=cloudwatch, ec2=ec2)
             created_count += 1
         else:
             logging.info(f"CW Alarm {alarm_name} already exists.")
     return created_count
 
 
-def create_alarm(volume_id, cloudwatch, ec2, sns):
-    if not check_sns_exists(sns):
-        logging.error(
-            f"Alarm creation failed due to invalid SNS ARN. Provided: {SNS_ALARM_ACTION_ARN}"
-        )
-        return
-
+def create_alarm(volume_id, cloudwatch, ec2):
     # Fetch additional information about the EBS volume
     response = ec2.describe_volumes(VolumeIds=[volume_id])
     volume_info = response["Volumes"][0]
@@ -296,8 +345,8 @@ def create_alarm(volume_id, cloudwatch, ec2, sns):
         )
 
 
-def update_alarm_description(volume_id, cloudwatch, ec2, volumes_without_alarm):
-    new_description = fetch_volume_info(volume_id, ec2)
+def update_alarm_description(volume_id, cloudwatch, ec2, volumes_without_alarm=None):
+    new_description = generate_alarm_description(volume_id=volume_id, ec2=ec2)
 
     if new_description is None:
         return False  # Indicate that the update was not successful
@@ -382,21 +431,41 @@ def update_alarm_description(volume_id, cloudwatch, ec2, volumes_without_alarm):
 
 def fetch_volume_info(volume_id, ec2):
     try:
-        # Fetch additional information about the EBS volume
         response = ec2.describe_volumes(VolumeIds=[volume_id])
         volume_info = response["Volumes"][0]
         tags = volume_info.get("Tags", [])
         availability_zone = volume_info["AvailabilityZone"]
 
-        # Convert tags to a string format suitable for inclusion in the alarm description
-        tag_string = ", ".join([f"{tag['Key']}:{tag['Value']}" for tag in tags])
+        tags_dict = {tag["Key"]: tag["Value"] for tag in tags}
 
-        # Create a more detailed alarm description
-        new_description = f"Alarm for EBS volume {volume_id} in {availability_zone}. Tags: {tag_string}"
+        # Fetching attached EC2 instance ID and name
+        attachments = volume_info.get("Attachments", [])
+        instance_id = ""
+        instance_name = ""
 
-        logging.info(f"Fetched information for volume {volume_id}: {new_description}")
+        if attachments:
+            instance_id = attachments[0].get("InstanceId", "")
 
-        return new_description
+            if instance_id:
+                instance_response = ec2.describe_instances(InstanceIds=[instance_id])
+                instance_info = instance_response["Reservations"][0]["Instances"][0]
+                instance_tags = instance_info.get("Tags", [])
+
+                for tag in instance_tags:
+                    if tag["Key"] == "Name":
+                        instance_name = tag["Value"]
+                        break
+
+        volume_details = {
+            "volume_id": volume_id,
+            "tags_dict": tags_dict,
+            "availability_zone": availability_zone,
+            "attached_instance_id": instance_id,
+            "attached_instance_name": instance_name,
+        }
+
+        logging.debug(f"Fetched information for volume {volume_id}: {volume_details}")
+        return volume_details
     except Exception as e:
         logging.error(
             f"An error occurred while fetching information for volume {volume_id}: {e}"
@@ -417,6 +486,9 @@ def parse_args():
     )
     parser.add_argument(
         "--update", action="store_true", help="Update CloudWatch Alarms."
+    )
+    parser.add_argument(
+        "--region", default="us-west-2", help="AWS Region (defaults to us-west-2)."
     )
     parser.add_argument(
         "--all",
