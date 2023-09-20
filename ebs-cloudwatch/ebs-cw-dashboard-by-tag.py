@@ -5,7 +5,7 @@ import logging
 import sys
 
 PAGINATION_COUNT = 300  # Set the number of items per page
-DASHBOARD_METRICS_LIMIT = 2500
+DASHBOARD_METRICS_LIMIT = 2500  # Set the number of metrics per dashboard.
 
 
 def main():
@@ -28,8 +28,11 @@ def main():
 
     if not args.no_cleanup:
         if args.verbose:
-            print("Previews dashboards:")
+            print("\n=== Dashboard Cleanup ===")
+            print("\nPrevious dashboards:")
             print("\n".join(current_dashboards))
+            print("\nNew dashboards:")
+            print("\n".join(new_dashboards))
 
         dashboard_cleanup(
             cloudwatch=cloudwatch,
@@ -46,16 +49,16 @@ def construct_dashboard(
     verbose=False,
     dry_run=False,
 ):
-    new_dashboards = []  # To keep track of new dashboards
-    dashboard_name = ""  # The name of the dashboard being constructed
+    new_dashboards = []
+    dashboard_name = ""
 
     volumes_by_tag = get_ebs_volumes(
         ec2_client=ec2_client, tag_name=tag_name, verbose=verbose
     )
 
     for tag_value, volumes in volumes_by_tag.items():
-        current_metric_count = 0  # Keep track of the current metric count
-        current_dashboard_number = 1  # Keep track of the current dashboard number
+        current_metric_count = 0
+        current_dashboard_number = 1
         widgets = []
 
         for i, volume in enumerate(volumes):
@@ -164,9 +167,7 @@ def construct_dashboard(
                 ]
             )
 
-            widget_metrics_count = len(
-                metrics
-            )  # Number of metrics in the current widget
+            widget_metrics_count = len(metrics)
             current_metric_count += widget_metrics_count
 
             # Check if we exceed the limit
@@ -222,7 +223,7 @@ def construct_dashboard(
             new_dashboards.append(dashboard_name)
 
             if verbose:
-                print(f"Created {total_dashboards} dashboards:")
+                print("\n\n=== Dashboards Created ===\n")
                 print("\n".join(new_dashboards))
 
     return new_dashboards
@@ -274,7 +275,7 @@ def list_existing_dashboards(cloudwatch, tag_name):
 def dashboard_cleanup(cloudwatch, current_dashboards, new_dashboards):
     for dashboard in current_dashboards:
         if dashboard not in new_dashboards:
-            print(f"Removing stale dashboard: {dashboard}")
+            print(f"\nRemoving stale dashboard: {dashboard}")
             cloudwatch.delete_dashboards(DashboardNames=[dashboard])
 
 
@@ -320,31 +321,6 @@ def initialize_logging(loglevel):
     logging.basicConfig(level=getattr(logging, loglevel.upper()))
 
 
-# Function to write the list of created dashboards to a text file
-def write_dashboards_to_file(tag_name, dashboard_names):
-    with open(f"ebs_dashboards_{tag_name}.txt", "w") as f:
-        for name in dashboard_names:
-            f.write(f"{name}\n")
-
-
-# Function to read the list of created dashboards from a text file
-def read_dashboards_from_file(tag_name):
-    try:
-        with open(f"ebs_dashboards_{tag_name}.txt", "r") as f:
-            return [line.strip() for line in f.readlines()]
-    except FileNotFoundError:
-        return []
-
-
-# Function to remove stale dashboards
-def remove_stale_dashboards(cloudwatch, tag_name, current_dashboards):
-    existing_dashboards = read_dashboards_from_file(tag_name)
-    for dashboard in existing_dashboards:
-        if dashboard not in current_dashboards:
-            print(f"Removing stale dashboard: {dashboard}")
-            cloudwatch.delete_dashboards(DashboardNames=[dashboard])
-
-
 def initialize_aws_clients(region):
     try:
         ec2_client = boto3.client("ec2", region_name=region)
@@ -353,7 +329,7 @@ def initialize_aws_clients(region):
         logging.info("Initilized AWS Client")
     except Exception as e:
         logging.error(f"Failed to initialize AWS clients: {e}")
-        sys.exit(1)  # Stop the script here
+        sys.exit(1)
 
     return ec2_client, cloudwatch
 
