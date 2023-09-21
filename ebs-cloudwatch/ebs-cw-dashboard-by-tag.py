@@ -3,6 +3,7 @@ import argparse
 import json
 import logging
 import sys
+import collections
 
 PAGINATION_COUNT = 300  # Set the number of items per page
 DASHBOARD_METRICS_LIMIT = 2500  # Set the number of metrics per dashboard.
@@ -15,15 +16,33 @@ def main():
 
     ec2_client, cloudwatch = initialize_aws_clients(region=args.region)
 
+    ebs_volume_information = get_ebs_volume_information(ec2_client=ec2_client)
+
+    if args.list_tags or args.tag_name is None:
+        if args.list_tags:
+            if args.verbose:
+                print("EBS Volumes:")
+                print(ebs_volume_information)
+            list_unique_tag_names(ebs_volumes=ebs_volume_information)
+            sys.exit(0)
+
+        if args.tag_name is None:
+            print("No tag name provided. Here are the available tag names:")
+            list_unique_tag_names(ebs_volumes=ebs_volume_information)
+            sys.exit(0)
+
+    volumes_by_tag = filter_volumes_by_tag(ebs_volume_information, args.tag_name)
+
     current_dashboards = list_existing_dashboards(cloudwatch, args.tag_name)
 
     new_dashboards = construct_dashboard(
-        ec2_client=ec2_client,
         cloudwatch=cloudwatch,
         tag_name=args.tag_name,
         region=args.region,
         verbose=args.verbose,
         dry_run=args.dry_run,
+        volumes_by_tag=volumes_by_tag,
+        ebs_volume_information=ebs_volume_information,
     )
 
     if not args.no_cleanup:
@@ -42,19 +61,16 @@ def main():
 
 
 def construct_dashboard(
-    ec2_client,
     cloudwatch,
     region,
     tag_name=None,
     verbose=False,
     dry_run=False,
+    volumes_by_tag=[],
+    ebs_volume_information=[],
 ):
     new_dashboards = []
     dashboard_name = ""
-
-    volumes_by_tag = get_ebs_volumes(
-        ec2_client=ec2_client, tag_name=tag_name, verbose=verbose
-    )
 
     for tag_value, volumes in volumes_by_tag.items():
         current_metric_count = 0
@@ -62,6 +78,17 @@ def construct_dashboard(
         widgets = []
 
         for i, volume in enumerate(volumes):
+            volume_type = next(
+                (
+                    vol["VolumeType"]
+                    for vol in ebs_volume_information
+                    if vol["VolumeId"] == volume
+                ),
+                None,
+            )
+            if verbose:
+                print(f"Volume type: {volume_type} for volume {volume}")
+
             metrics = [
                 [
                     "AWS/EBS",
@@ -166,6 +193,26 @@ def construct_dashboard(
                     }
                 ]
             )
+
+            if volume_type in ["sc1", "st1"]:
+                if verbose:
+                    print(
+                        f"Adding BurstBalance for {volume} as it is a {volume_type} volume type"
+                    )
+                metrics.append(
+                    [
+                        "AWS/EBS",
+                        "BurstBalance",
+                        "VolumeId",
+                        volume,
+                        {
+                            "region": region,
+                            "id": "m6",  # ID for BurstBalance metric
+                            "label": f"{volume}_BurstBalance",
+                            "color": "#f0ad4e",
+                        },
+                    ]
+                )
 
             widget_metrics_count = len(metrics)
             current_metric_count += widget_metrics_count
@@ -279,6 +326,31 @@ def dashboard_cleanup(cloudwatch, current_dashboards, new_dashboards):
             cloudwatch.delete_dashboards(DashboardNames=[dashboard])
 
 
+def get_tag_data(ebs_volumes):
+    tag_data = collections.defaultdict(set)
+
+    for volume in ebs_volumes:
+        if volume is None:  # Add this check
+            continue
+        tags = volume.get("Tags", {})
+        for key, value in tags.items():
+            tag_data[key].add(value)
+    return tag_data
+
+
+def get_tag_data(ebs_volumes):
+    tag_data = collections.defaultdict(set)
+
+    for volume in ebs_volumes:
+        if volume is None:  # Add this check
+            continue
+        tags = volume.get("Tags", {})
+        for key, value in tags.items():
+            tag_data[key].add(value)
+
+    return tag_data
+
+
 def get_volume_tags(volume, tag_name):
     for tag in volume.get("Tags", []):
         if tag["Key"] == tag_name:
@@ -286,9 +358,9 @@ def get_volume_tags(volume, tag_name):
     return None
 
 
-def filter_volumes_by_tag(volumes, tag_name):
+def filter_volumes_by_tag(ebs_volume_information, tag_name):
     volumes_by_tag = {}
-    for volume in volumes:
+    for volume in ebs_volume_information:
         tag_value = get_volume_tags(volume, tag_name)
         if tag_value:
             volumes_by_tag.setdefault(tag_value, []).append(volume["VolumeId"])
@@ -300,9 +372,36 @@ def get_all_volumes(ec2_client):
     all_volumes = []
 
     for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
-        all_volumes.extend(page["Volumes"])
+        if page.get("Volumes") is not None:  # Add this check
+            all_volumes.extend(page["Volumes"])
 
     return all_volumes
+
+
+def get_ebs_volumes(ec2_client, tag_name=None, verbose=False):
+    all_volumes = get_all_volumes(ec2_client)
+
+    if verbose:
+        print("All Volumes:", all_volumes)  # Debug print
+
+    if tag_name:
+        volumes_by_tag = filter_volumes_by_tag(all_volumes, tag_name)
+        if verbose:
+            print(f"Found {len(volumes_by_tag)} tagged volumes")
+        return volumes_by_tag
+    else:
+        return {None: [volume["VolumeId"] for volume in all_volumes]}
+
+
+def get_ebs_volume_information(ec2_client):
+    paginator = ec2_client.get_paginator("describe_volumes")
+    all_volume_info = []
+
+    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+        for volume in page["Volumes"]:
+            all_volume_info.append(volume)
+
+    return all_volume_info
 
 
 def get_ebs_volumes(ec2_client, tag_name=None, verbose=False):
@@ -319,6 +418,21 @@ def get_ebs_volumes(ec2_client, tag_name=None, verbose=False):
 
 def initialize_logging(loglevel):
     logging.basicConfig(level=getattr(logging, loglevel.upper()))
+
+
+def list_unique_tag_names(ebs_volumes):
+    unique_tag_names = set()
+
+    for volume in ebs_volumes:
+        if volume is None:
+            continue
+        tags = volume.get("Tags", [])
+        for tag in tags:
+            unique_tag_names.add(tag["Key"])
+
+    print("Unique EBS Volume Tag Names:")
+    for tag_name in unique_tag_names:
+        print(f" - {tag_name}")
 
 
 def initialize_aws_clients(region):
@@ -354,6 +468,16 @@ def parse_args():
         "--no-cleanup",
         action="store_true",
         help="Do not delete stale dashboards",
+    )
+    parser.add_argument(
+        "--list-tag-names",
+        action="store_true",
+        help="List all unique EBS volue tag names",
+    )
+    parser.add_argument(
+        "--list-tags",
+        action="store_true",
+        help="List all EBS volue tag names and a list of unique values",
     )
     parser.add_argument(
         "--loglevel",
