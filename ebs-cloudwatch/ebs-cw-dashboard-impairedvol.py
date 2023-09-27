@@ -1,12 +1,34 @@
 import boto3
 import json
 import argparse
+import logging
+import sys
 
 
-def get_alarms():
-    # Create a CloudWatch client
-    cloudwatch = boto3.client("cloudwatch")
+def main():
+    args = parse_args()
 
+    initilize_logging(args=args)
+
+    cloudwatch = initialize_aws_clients(region=args.region)
+
+    if args.read:
+        read_dashboard(cloudwatch=cloudwatch)
+    else:
+        update_dashboard(cloudwatch=cloudwatch, verbose=args.verbose)
+
+
+def initilize_logging(args):
+    # Initialize logging
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    elif args.verbose:
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(level=logging.WARNING)
+
+
+def get_alarms(cloudwatch):
     # Describe alarms
     alarms = cloudwatch.describe_alarms(AlarmNamePrefix="ImpairedVol_")
 
@@ -14,12 +36,9 @@ def get_alarms():
     return [alarm["AlarmArn"] for alarm in alarms["MetricAlarms"]]
 
 
-def update_dashboard(verbose):
-    # Create a CloudWatch client
-    cloudwatch = boto3.client("cloudwatch")
-
+def update_dashboard(cloudwatch, verbose):
     # Get current alarms
-    current_alarms = get_alarms()
+    current_alarms = get_alarms(cloudwatch=cloudwatch)
 
     try:
         # Get the existing dashboard
@@ -63,10 +82,7 @@ def update_dashboard(verbose):
     print("Dashboard updated successfully.")
 
 
-def read_dashboard():
-    # Create a CloudWatch client
-    cloudwatch = boto3.client("cloudwatch")
-
+def read_dashboard(cloudwatch):
     try:
         # Get the existing dashboard
         dashboard = cloudwatch.get_dashboard(DashboardName="MyDashboard")
@@ -78,7 +94,7 @@ def read_dashboard():
         dashboard_alarms = dashboard_body["widgets"][0]["properties"]["alarms"]
 
         # Get current alarms
-        current_alarms = get_alarms()
+        current_alarms = get_alarms(cloudwatch=cloudwatch)
 
         # Find alarms that are not on the dashboard
         missing_alarms = set(current_alarms) - set(dashboard_alarms)
@@ -93,19 +109,35 @@ def read_dashboard():
         print("Dashboard MyDashboard does not exist.")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Manage CloudWatch Dashboard.")
+def initialize_aws_clients(region):
+    try:
+        cloudwatch = boto3.client("cloudwatch", region_name=region)
+        logging.info(f"Initilized AWS Client in region {region}")
+    except Exception as e:
+        logging.error(f"Failed to initialize AWS clients: {e}")
+        sys.exit(1)  # Stop the script here
+
+    return cloudwatch
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Manage CloudWatch Dashboard for EBS Impaired Volume."
+    )
     parser.add_argument(
         "--verbose", action="store_true", help="Print details of boto3 calls."
     )
+    parser.add_argument(
+        "--debug", action="store_true", help="Print debug level logging."
+    )
+    parser.add_argument("--region", default="us-west-2", help="AWS region name.")
     parser.add_argument(
         "--read",
         action="store_true",
         help="Read the content of the existing dashboard.",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    if args.read:
-        read_dashboard()
-    else:
-        update_dashboard(args.verbose)
+
+if __name__ == "__main__":
+    main()

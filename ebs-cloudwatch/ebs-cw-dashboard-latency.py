@@ -124,7 +124,7 @@ def create_dashboard(verbose=False, dry_run=False):
     if not dry_run:
         print(f"Putting dashboard...")
         response = cloudwatch.put_dashboard(
-            DashboardName="Read_and_Write_Latency",  # Updated Dashboard Name
+            DashboardName="Read_and_Write_Latency",
             DashboardBody=dashboard_body,
         )
         print("Put Dashboard Response:")
