@@ -70,6 +70,7 @@ def main():
                 region=args.region,
                 dryrun=args.dryrun,
                 verbose=args.verbose,
+                file_out=args.file_out,
             )
 
 
@@ -77,13 +78,74 @@ def create_dashboard_body(widgets):
     return {"widgets": widgets}
 
 
-def create_dashboard_widget(volume, metrics, region, verbose):
+# The function create_dashboard_widget with adjusted JSON structure
+def create_dashboard_widget(volume, region, verbose):
+    volume_id = volume["VolumeId"]
     tags = volume["Tags"]
     tag_strings = [f"{key}={value}" for key, value in tags.items()]
     tag_string = ", ".join(tag_strings)
-    widget_title = f"{tag_string} {volume['VolumeId']}"
+    widget_title = f"{tag_string} {volume_id}"
 
+    # Define metrics
+    metrics = [
+        # ReadLatency
+        {
+            "expression": "(m1 / m2) * 1000",
+            "label": "ReadLatency",
+            "id": "e1",
+            "region": region,
+            "yAxis": "right",
+        },
+        # WriteLatency
+        {
+            "expression": "(m3 / m4) * 1000",
+            "label": "WriteLatency",
+            "id": "e2",
+            "region": region,
+            "yAxis": "right",
+        },
+        [
+            "AWS/EBS",
+            "VolumeTotalReadTime",
+            "VolumeId",
+            volume_id,
+            {"id": "m1", "region": region},
+        ],
+        [
+            "AWS/EBS",
+            "VolumeReadOps",
+            "VolumeId",
+            volume_id,
+            {"id": "m2", "region": region},
+        ],
+        [
+            "AWS/EBS",
+            "VolumeTotalWriteTime",
+            "VolumeId",
+            volume_id,
+            {"id": "m3", "region": region},
+        ],
+        [
+            "AWS/EBS",
+            "VolumeWriteOps",
+            "VolumeId",
+            volume_id,
+            {"id": "m4", "region": region},
+        ],
+        [
+            "AWS/EBS",
+            "VolumeQueueLength",
+            "VolumeId",
+            volume_id,
+            {"id": "m5", "region": region},
+        ],
+    ]
+
+    num_metrics = sum(1 for metric in metrics if isinstance(metric, list))
+
+    # Define widget properties
     widget_properties = {
+        "metrics": metrics,
         "region": region,
         "title": widget_title,
         "yAxis": {"left": {"min": 0}, "right": {"min": 0}},
@@ -101,90 +163,19 @@ def create_dashboard_widget(volume, metrics, region, verbose):
         },
         "view": "timeSeries",
         "stacked": False,
-        "metrics": metrics,
     }
 
     widget_contents = {
         "type": "metric",
-        "width": GRAPH_DEFAULT_WIDTH,
-        "height": GRAPH_DEFAULT_HEIGHT,
+        "width": 12,
+        "height": 5,
         "properties": widget_properties,
     }
 
-    if verbose:
-        print(json.dumps(widget_contents, indent=4))
+    #    if verbose:
+    #        print(json.dumps(widget_contents, indent=4))
 
-    return widget_contents
-
-
-def define_dashboard_metrics(volume, region):
-    volume_id = volume["VolumeId"]
-    metrics = []
-
-    read_latency = {
-        "expression": "(m1 / m2) * 1000",
-        "label": "ReadLatency",
-        "id": "e1",
-        "region": region,
-        "yAxis": "right",
-    }
-    write_latency = {
-        "expression": "(m3 / m4) * 1000",
-        "label": "WriteLatency",
-        "id": "e2",
-        "region": region,
-        "yAxis": "right",
-    }
-
-    metrics.extend([read_latency, write_latency])
-
-    metrics.append(
-        [
-            "AWS/EBS",
-            "VolumeTotalReadTime",
-            "VolumeId",
-            volume_id,
-            {"id": "m1", "region": region},
-        ]
-    )
-    metrics.append(
-        [
-            "AWS/EBS",
-            "VolumeReadOps",
-            "VolumeId",
-            volume_id,
-            {"id": "m2", "region": region},
-        ]
-    )
-    metrics.append(
-        [
-            "AWS/EBS",
-            "VolumeTotalWriteTime",
-            "VolumeId",
-            volume_id,
-            {"id": "m3", "region": region},
-        ]
-    )
-    metrics.append(
-        [
-            "AWS/EBS",
-            "VolumeWriteOps",
-            "VolumeId",
-            volume_id,
-            {"id": "m4", "region": region},
-        ]
-    )
-    metrics.append(
-        [
-            "AWS/EBS",
-            "VolumeQueueLength",
-            "VolumeId",
-            volume_id,
-            {"id": "m5", "region": region},
-        ]
-    )
-
-    return metrics
+    return widget_contents, num_metrics
 
 
 # Function to initialize logging
@@ -267,69 +258,136 @@ def get_tag_keys_from_args(args):
         sys.exit(1)
 
 
-def manage_dashboard(tag_combination, volumes, cloudwatch, dryrun, region, verbose):
-    metrics = []
+def manage_dashboard(
+    tag_combination, volumes, cloudwatch, dryrun, region, verbose, file_out=False
+):
+    total_metric_count = 0
+    widgets = []
 
     for volume in volumes:
-        metrics.extend(define_dashboard_metrics(volume=volume, region=region))
+        widget, num_metrics = create_dashboard_widget(
+            volume=volume, region=region, verbose=verbose
+        )
+        widgets.append(widget)  # Append only the widget dictionary
+        total_metric_count += num_metrics
 
-    total_shards = -(-len(metrics) // DASHBOARD_METRIC_LIMIT)  # Ceiling division
+    total_shards = -(-total_metric_count // DASHBOARD_METRIC_LIMIT)  # Ceiling division
 
-    # Split the metrics into smaller chunks if they exceed the limit
-    for i in range(0, len(metrics), DASHBOARD_METRIC_LIMIT):
-        shard_metrics = metrics[i : i + DASHBOARD_METRIC_LIMIT]
-        shard_index = i // DASHBOARD_METRIC_LIMIT
-        dashboard_name = f"EBS_{sanitize_name(tag_combination)}_Shard_{shard_index + 1}_of_{total_shards}"
-        # Check and truncate dashboard name if it exceeds 255 characters
-        if len(dashboard_name) > 255:
-            logging.warning(
-                f"Truncating dashboard name {dashboard_name} to 255 characters."
+    # Split the widgets into smaller chunks if the total metrics exceed the limit
+    current_metric_count = 0
+    shard_widgets = []
+    shard_index = 1
+    for widget in widgets:
+        num_metrics = sum(
+            1 for metric in widget["properties"]["metrics"] if isinstance(metric, list)
+        )
+        if current_metric_count + num_metrics > DASHBOARD_METRIC_LIMIT:
+            # Create a new shard
+            if verbose:
+                print(f"Creating shard {shard_index} of {total_shards}\n")
+
+            update_dashboard(
+                cloudwatch=cloudwatch,
+                volumes=volumes,
+                widgets=shard_widgets,
+                tag_combination=tag_combination,
+                shard_index=shard_index,
+                total_shards=total_shards,
+                dryrun=dryrun,
+                region=region,
+                verbose=verbose,
+                file_out=file_out,
             )
-            dashboard_name = dashboard_name[:255]
-
-        if verbose:
-            logging.info(f"\nDashboard name: {dashboard_name}\nShard index: {i+1}\n")
-
-        widgets = []
-        for volume in volumes:
-            metrics = define_dashboard_metrics(volume=volume, region=region)
-            widget = create_dashboard_widget(
-                volume=volume, metrics=metrics, region=region, verbose=verbose
-            )
-            widgets.append(widget)
-
-        dashboard_body = {"widgets": widgets}
-
-        if dryrun:
-            logging.info(
-                f"Dry run: Would update dashboard {dashboard_name} with {len(shard_metrics)} metrics."
-            )
-            print("\n\nCloudwatch Dashboard Contents\n")
-            print(json.dumps(dashboard_body, indent=4))
-
+            shard_widgets = [widget]
+            current_metric_count = num_metrics
+            shard_index += 1
         else:
-            try:
-                cloudwatch.put_dashboard(
-                    DashboardName=dashboard_name,
-                    DashboardBody=json.dumps(dashboard_body),
-                )
-                logging.info(f"Dashboard {dashboard_name} updated successfully.")
-            except boto3.exceptions.botocore.exceptions.ClientError as e:
-                if e.response["Error"]["Code"] == "InvalidParameterValue":
-                    logging.error(
-                        f"Invalid parameter value for dashboard {dashboard_name}."
-                    )
-                else:
-                    logging.error(
-                        f"An error occurred: {e.response['Error']['Message']}"
-                    )
+            shard_widgets.append(widget)
+            current_metric_count += num_metrics
 
-        if verbose:
-            volume_list = [vol["VolumeId"] for vol in volumes]
-            logging.info(f"\nDashboard {dashboard_name} has volumes: {volume_list}")
-            logging.info(
-                f"\nDashboard {dashboard_name} has total metrics: {len(shard_metrics)}"
+            if verbose:
+                print(f"Appending to shard {shard_index} of {total_shards}")
+                print(f"Current metric count: {current_metric_count}")
+
+    if shard_widgets:
+        # Update the last shard
+        update_dashboard(
+            cloudwatch=cloudwatch,
+            volumes=volumes,
+            widgets=shard_widgets,
+            tag_combination=tag_combination,
+            shard_index=shard_index,
+            total_shards=total_shards,
+            dryrun=dryrun,
+            region=region,
+            verbose=verbose,
+            file_out=file_out,
+        )
+
+
+def update_dashboard(
+    widgets,
+    tag_combination,
+    shard_index,
+    total_shards,
+    dryrun,
+    region,
+    verbose,
+    volumes,
+    cloudwatch,
+    file_out=False,
+):
+    dashboard_name = (
+        f"EBS_{sanitize_name(tag_combination)}_Shard_{shard_index}_of_{total_shards}"
+    )
+
+    dashboard_name = f"EBS_{sanitize_name(tag_combination)}_Shard_{shard_index + 1}_of_{total_shards}"
+    # Check and truncate dashboard name if it exceeds 255 characters
+    if len(dashboard_name) > 255:
+        logging.warning(
+            f"Truncating dashboard name {dashboard_name} to 255 characters."
+        )
+        dashboard_name = dashboard_name[:255]
+
+    if verbose:
+        logging.info(
+            f"\nDashboard name: {dashboard_name}\nShard index: {shard_index}\n"
+        )
+
+    widgets = []
+    for volume in volumes:
+        widget = create_dashboard_widget(volume=volume, region=region, verbose=verbose)
+        widgets.append(widget)
+
+    dashboard_body = {"widgets": widgets}
+
+    if file_out:  # Check if --file-out is passed
+        file_name = f"{dashboard_name}.json"
+        with open(file_name, "w") as f:
+            json.dump(dashboard_body, f, indent=4)
+        logging.info(f"Dashboard contents written to {file_name}")
+
+    else:
+        try:
+            cloudwatch.put_dashboard(
+                DashboardName=dashboard_name,
+                DashboardBody=json.dumps(dashboard_body),
             )
+            logging.info(f"Dashboard {dashboard_name} updated successfully.")
+        except boto3.exceptions.botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "InvalidParameterValue":
+                logging.error(
+                    f"Invalid parameter value for dashboard {dashboard_name}."
+                )
+            else:
+                logging.error(f"An error occurred: {e.response['Error']['Message']}")
+
+    if verbose:
+        volume_list = [vol["VolumeId"] for vol in volumes]
+        logging.info(f"\nDashboard {dashboard_name} has volumes: {volume_list}")
+        logging.info(
+            f"\nDashboard name: {dashboard_name}\nShard index: {shard_index}\n"
+        )
 
 
 def sanitize_name(name):
@@ -346,6 +404,11 @@ def parse_args(regions):
     parser.add_argument(
         "--tag_keys_file",
         help="File containing tag keys to group dashboards by, one per line.",
+    )
+    parser.add_argument(
+        "--file-out",
+        action="store_true",
+        help="Write dashboard contents to a file",
     )
     parser.add_argument(
         "--list-regions",
