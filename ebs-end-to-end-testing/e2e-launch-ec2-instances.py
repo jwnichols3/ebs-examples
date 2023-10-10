@@ -16,10 +16,20 @@ def main():
     args = parse_args()
     init_logging(args)
 
+    if args.region is None:
+        # This is an outlier check - the other parameters are checked once the aws resources are initilized.
+        # edit this list of regions as needed
+        args.region = prompt_for_choice(
+            ["us-east-1", "us-east-2", "us-west-2", "eu-west-1"],
+            "Please select a region (by number): ",
+        )
+
     ec2_client, ec2_resource = initialize_aws_clients(args.region)
 
     if args.launchrun_list:
-        list_unique_launch_runs(ec2_client=ec2_client, ec2_resource=ec2_resource)
+        list_unique_launch_runs(
+            ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
+        )
         return
 
     if args.terminate:
@@ -238,7 +248,7 @@ def validate_sg_and_subnet(ec2_client, security_group, subnet_id):
         raise ValueError("Security group and subnet belong to different VPCs.")
 
 
-def list_unique_launch_runs(ec2_client, ec2_resource):
+def list_unique_launch_runs(ec2_client, ec2_resource, region):
     # Fetching instances with LaunchRun tag and in 'running' state
     instances = ec2_resource.instances.filter(
         Filters=[
@@ -280,7 +290,7 @@ def list_unique_launch_runs(ec2_client, ec2_resource):
     print("\nHere are the terminate options for each launch run: \n")
 
     for launch_run_terminate in unique_launch_runs:
-        print(f"--terminate {launch_run_terminate}")
+        print(f"--terminate {launch_run_terminate} --region {region}")
 
 
 def handle_user_inputs(
@@ -306,9 +316,33 @@ def handle_user_inputs(
     if volume_count is None:
         volume_count = int(input("Please enter the number of volumes per instance: "))
     if key_name is None:
-        key_name = prompt_for_choice(
-            get_key_pairs(ec2_client), "Please select a key pair (by number): "
-        )
+        available_keys = get_key_pairs(ec2_client)
+        if available_keys:
+            key_name = prompt_for_choice(
+                available_keys + ["Create new key pair", "Proceed without key pair"],
+                "Please select a key pair (by number): ",
+            )
+            if key_name == "Create new key pair":
+                # Add logic to create a new key pair
+                pass
+            elif key_name == "Proceed without key pair":
+                key_name = None
+        else:
+            print("No existing key pairs found.")
+            create_or_proceed = prompt_for_choice(
+                ["Create new key pair", "Proceed without key pair"],
+                "Would you like to create a new key pair or proceed without a key pair? (by number): ",
+            )
+            if create_or_proceed == "Create new key pair":
+                # Add logic to create a new key pair
+                pass
+            elif create_or_proceed == "Proceed without key pair":
+                key_name = None
+
+    #    if key_name is None:
+    #        key_name = prompt_for_choice(
+    #            get_key_pairs(ec2_client), "Please select a key pair (by number): "
+    #        )
     if vpc is None:
         selected_option = prompt_for_choice(
             get_vpcs_with_names(ec2_client), "Please select a VPC (by number): "
@@ -325,7 +359,15 @@ def handle_user_inputs(
             "Please select a Security Group (by number): ",
         )
         security_group = selected_option[0]
-    return instance_count, volume_count, key_name, vpc, az, security_group, vol_type
+    return (
+        instance_count,
+        volume_count,
+        key_name,
+        vpc,
+        az,
+        security_group,
+        vol_type,
+    )
 
 
 def prepare_launch_params(
@@ -333,10 +375,10 @@ def prepare_launch_params(
     volume_count,
     ec2_client,
     az,
-    key_name,
     security_group,
     vpc,
     vol_type="gp3",
+    key_name=None,
 ):
     ami_id = get_latest_amazon_linux_ami(ec2_client)
     block_device_mappings = []
@@ -364,13 +406,17 @@ def prepare_launch_params(
         "UserData": base64.b64encode(user_data_script.encode()).decode(),
         "BlockDeviceMappings": block_device_mappings,
         "SubnetId": subnet_id,
-        "KeyName": key_name,
         "SecurityGroupIds": [security_group],
     }
+    if key_name:
+        launch_params["KeyName"] = key_name
+
     return launch_params
 
 
-def monitor_instance_status(instance_ids, ec2_client, style, key_name, quiet=False):
+def monitor_instance_status(
+    instance_ids, ec2_client, style, key_name, region, quiet=False
+):
     all_running = False
     while not all_running:
         summary_table = []
@@ -380,10 +426,11 @@ def monitor_instance_status(instance_ids, ec2_client, style, key_name, quiet=Fal
             status = instance["State"]["Name"]
             public_ip = instance.get("PublicIpAddress", "")
             private_ip = instance["PrivateIpAddress"]
-            terminate_command = (
-                f"aws ec2 terminate-instances --instance-ids {instance_id}"
-            )
-            ssh_command = f"ssh -i {KEY_PATH}/{key_name}.pem ec2-user@{public_ip}"
+            terminate_command = f"aws ec2 terminate-instances --instance-ids {instance_id} --region {region}"
+            ssh_command = "No SSH (no key pair)."
+            if key_name:
+                ssh_command = f"ssh -i {KEY_PATH}/{key_name}.pem ec2-user@{public_ip}"
+
             summary_table.append(
                 (
                     instance_id,
@@ -472,11 +519,12 @@ def launch_instances(
         volume_count=volume_count,
         ec2_client=ec2_client,
         az=az,
-        key_name=key_name,
         security_group=security_group,
         vpc=vpc,
+        key_name=key_name,
         vol_type=vol_type,
     )
+
     launch_params["TagSpecifications"] = [
         {
             "ResourceType": "instance",
@@ -503,6 +551,7 @@ def launch_instances(
         ec2_client=ec2_client,
         style=style,
         key_name=key_name,
+        region=region,
         quiet=quiet,
     )
 
@@ -513,7 +562,9 @@ def launch_instances(
         logging.info(f"\n\nComparable CLI Command: {comparable_cli_command}")
 
         logging.info("\n\nTo terminate these instances, run the following command:")
-        logging.info(f"{python_executable} {script_name} --terminate {launch_run_id}")
+        logging.info(
+            f"{python_executable} {script_name} --terminate {launch_run_id} --region {region}"
+        )
 
 
 def parse_args():
@@ -526,7 +577,7 @@ def parse_args():
     parser.add_argument(
         "--volumes", type=int, help="Number of EBS volumes per instance."
     )
-    parser.add_argument("--region", type=str, default="us-west-2", help="AWS region.")
+    parser.add_argument("--region", type=str, help="AWS region.")
     parser.add_argument("--vpc", type=str, help="VPC ID.")
     parser.add_argument(
         "--vol-type",
