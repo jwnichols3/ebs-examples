@@ -1,0 +1,13 @@
+account-number,region,account-description
+357044226454,us-west-2,EC2
+357044226454,us-east-2,EC2
+357044226454,us-east-1,EC2
+357044226454,eu-west-1,EC2
+338557412966,us-east-1,HME
+338557412966,us-east-2,HME
+338557412966,us-west-2,HME
+338557412966,eu-west-1,HME
+579556785526,us-east-1,EKS
+579556785526,us-east-2,EKS
+579556785526,us-west-2,EKS
+579556785526,eu-west-1,EKS
