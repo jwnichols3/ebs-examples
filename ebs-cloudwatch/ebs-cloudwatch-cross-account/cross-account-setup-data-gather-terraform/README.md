@@ -1,7 +1,16 @@
-Main - Observability 161521808930
-Acct 1 - EC2 357044226454
-Acct 2 - HME 338557412966
-Acct 3 - EKS 579556785526
-Acct 4 - WP 627710063647
+# Overview and Limitations
 
-"357044226454", "338557412966", "579556785526", "627710063647"
+I expect Terraform has a more elegant way to deploy this. For the sake of time, I accepted the technical debt and created a TF project per account.
+
+The folder structure is:
+
+- main-account
+- target-account-1
+- target-account-2
+- target-account-3
+- target-account-4
+- etc
+
+## Usage
+
+In each account, edit the `terraform.tfvars`
