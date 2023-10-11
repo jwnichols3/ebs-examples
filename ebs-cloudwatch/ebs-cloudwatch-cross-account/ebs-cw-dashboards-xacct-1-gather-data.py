@@ -210,7 +210,9 @@ def init_logging(level):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="AWS EBS Information")
+    parser = argparse.ArgumentParser(
+        description="CloudWatch Dashboards Cross-Account Data Gathering"
+    )
     parser.add_argument(
         "--account-file",
         type=str,
