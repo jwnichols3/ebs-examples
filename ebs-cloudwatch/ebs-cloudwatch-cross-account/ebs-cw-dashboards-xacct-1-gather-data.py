@@ -6,7 +6,15 @@ import argparse
 import os
 import logging
 
+# CONSTANTS
 EBS_PAGINATION = 300
+DEFAULT_REGION = "us-west-2"
+DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
+DEFAULT_S3_KEY_PREFIX = ""
+DEFAULT_DATA_FILE = "ebs-data.csv"
+DEFAULT_S3_REGION = "us-west-2"
+DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
+DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
 
 
 def main():
@@ -17,7 +25,7 @@ def main():
     role_name = args.role_name
     bucket_name = args.bucket_name
     key_prefix = args.key_prefix
-    data_file = args.data_file  # This will be used for both S3 and local file
+    data_file = args.data_file
 
     # Check if the account file exists
     if not os.path.exists(account_file):
@@ -194,8 +202,8 @@ def read_and_print_s3_file(s3_client, bucket_name, s3_key):
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
         file_content = response["Body"].read().decode("utf-8")
-        logging.info("Contents of S3 File:\n")
-        logging.info(file_content)
+        logging.info("Contents of S3 File:")
+        logging.info(f"\n{file_content}")
     except Exception as e:
         logging.error(f"An error occurred while reading S3 file: {e}")
 
@@ -216,38 +224,38 @@ def parse_args():
     parser.add_argument(
         "--account-file",
         type=str,
-        default="account-info.csv",
-        help="Specify the account information file. Defaults to account-info.csv.",
+        default=DEFAULT_ACCOUNT_INFO_FILE,
+        help=f"Specify the account information file. Defaults to {DEFAULT_ACCOUNT_INFO_FILE}.",
     )
     parser.add_argument(
         "--role-name",
         type=str,
-        default="CrossAccountObservabilityRole",
-        help="Specify the role name. Defaults to CrossAccountObservabilityRole.",
+        default=DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
+        help=f"Specify the role name. Defaults to {DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
     )
     parser.add_argument(
         "--s3-region",
         type=str,
-        default="us-west-2",  # Default region
-        help="Specify the S3 region. Defaults to us-west-2.",
+        default=DEFAULT_S3_REGION,  # Default region
+        help=f"Specify the S3 region. Defaults to {DEFAULT_S3_REGION}.",
     )
     parser.add_argument(
         "--bucket-name",
         type=str,
-        default="jnicmazn-ebs-observability-us-west-2",
-        help="Specify the bucket name. Defaults to jnicmazn-ebs-observability-us-west-2.",
+        default=DEFAULT_S3_BUCKET_NAME,
+        help=f"Specify the bucket name. Defaults to {DEFAULT_S3_BUCKET_NAME}.",
     )
     parser.add_argument(
         "--key-prefix",
         type=str,
-        default="",
-        help="Specify the S3 key prefix. Defaults to empty string.",
+        default=DEFAULT_S3_KEY_PREFIX,
+        help=f"Specify the S3 key prefix. Defaults to '{DEFAULT_S3_KEY_PREFIX or 'an empty string'}'.",
     )
     parser.add_argument(
         "--data-file",
         type=str,
-        default="ebs-volume-info.csv",
-        help="Specify the output file name. Defaults to ebs-volume-info.csv.",
+        default=DEFAULT_DATA_FILE,
+        help=f"Specify the output file name. Defaults to {DEFAULT_DATA_FILE}.",
     )
     parser.add_argument(
         "--logging",
