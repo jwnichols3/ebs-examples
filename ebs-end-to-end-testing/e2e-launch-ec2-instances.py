@@ -22,7 +22,7 @@ def main():
         if args.region:
             # Only list for the specified region
             ec2_client, ec2_resource = initialize_aws_clients(args.region)
-            print(f"\n=== Checking LaunchRuns for region {args.region} ===")
+            print(f"=== Checking LaunchRuns for region {args.region} ===")
             list_unique_launch_runs(
                 ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
             )
@@ -36,20 +36,24 @@ def main():
             ]
             for region in regions:
                 ec2_client, ec2_resource = initialize_aws_clients(region)
-                print("\n=====================================================")
                 print(f"--- {region}: Checking LaunchRuns")
                 unique_launch_runs = list_unique_launch_runs(
                     ec2_client=ec2_client, ec2_resource=ec2_resource, region=region
                 )
-                print("\n")
+                # print("\n")
                 if unique_launch_runs:
                     all_unique_launch_runs.extend(
                         [(region, launch_run) for launch_run in unique_launch_runs]
                     )
 
             print("\n=== Summary of All Unique LaunchRuns Across All Regions ===")
+            python_executable = sys.executable
+            script_name = os.path.basename(__file__)
+
             for region, launch_run in all_unique_launch_runs:
-                print(f"{region}: {launch_run}")
+                print(
+                    f"{python_executable} {script_name} --region {region} --terminate {launch_run}"
+                )
 
         return
 
@@ -128,7 +132,7 @@ def initialize_aws_clients(region):
     try:
         ec2_client = boto3.client("ec2", region_name=region)
         ec2_resource = boto3.resource("ec2", region_name=region)
-        logging.info("Initilized AWS Client")
+        logging.debug("Initilized AWS Client")
     except Exception as e:
         logging.error(f"Failed to initialize AWS clients: {e}")
         sys.exit(1)  # Stop the script here
@@ -180,17 +184,35 @@ def terminate_instances_by_launch_run(launch_run_id, ec2_client, ec2_resource, n
 
 def prompt_for_choice(options, prompt_message, allowed_choices=None):
     while True:
-        for i, option in enumerate(options, 1):
-            print(
-                f"{i}. {option if not isinstance(option, tuple) else ' - '.join(option)}"
-            )
-        choice = int(input(prompt_message)) - 1
-        selected_option = options[choice]
+        try:
+            for i, option in enumerate(options, 1):
+                print(
+                    f"{i}. {option if not isinstance(option, tuple) else ' - '.join(option)}"
+                )
+            choice = int(input(prompt_message)) - 1
 
-        if allowed_choices is None or selected_option.lower() in allowed_choices:
-            return selected_option
-        else:
-            print(f"Invalid choice. Allowed choices are: {', '.join(allowed_choices)}")
+            # Check for index out of range
+            if choice < 0 or choice >= len(options):
+                print(
+                    f"Invalid choice. Please select a number between 1 and {len(options)}."
+                )
+                continue  # Skip the rest of the loop and start over
+
+            selected_option = options[choice]
+
+            if allowed_choices is None or selected_option.lower() in allowed_choices:
+                return selected_option
+            else:
+                print(
+                    f"Invalid choice. Allowed choices are: {', '.join(allowed_choices)}"
+                )
+
+        except KeyboardInterrupt:
+            print("\nCtrl-C pressed. Exiting.")
+            sys.exit(0)  # Exit the script
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
 
 def get_key_pairs(ec2_client):
@@ -327,16 +349,19 @@ def list_unique_launch_runs(ec2_client, ec2_resource, region):
 
     if not unique_launch_runs:
         # print("No active LaunchRuns found.")
-        logging.info(f"No active LaunchRuns found in {region}.\n\n")
+        logging.info(f"No active LaunchRuns found in {region}.")
         return
     print("Unique active LaunchRun IDs:")
     for launch_run in unique_launch_runs:
         print(f"- {launch_run}")
 
-    print("\nHere are the terminate options for each launch run:")
+    # if logging.debug:
+    script_name = os.path.basename(__file__)
+
+    print(f"Terminate launch runs in region {region}:")
 
     for launch_run_terminate in unique_launch_runs:
-        print(f"--terminate {launch_run_terminate} --region {region}")
+        print(f"{script_name} --region {region} --terminate {launch_run_terminate}")
 
     return unique_launch_runs
 
