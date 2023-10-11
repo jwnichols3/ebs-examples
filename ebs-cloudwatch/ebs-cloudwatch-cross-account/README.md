@@ -1,12 +1,37 @@
 # EBS CloudWatch Monitoring - Cross Account and Cross Region
 
-[CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+## Progress Tracking
+
+[x] Cross-Account Access via IAM [Terraform](./cross-account-setup-data-gather-terraform/)
+[x] Cross-Account CW data flow [Information](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md)
+[x] Collecting EBS Volumes based on a list of accounts and tags [MVP Python Script](./part1-collect-data-with-tags.py)
+[x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
+[ ] CW Dashboard construction script
+[ ] CW Dashboard clean up script
 
 ## Overview
 
-Collecting and storing Account Information in a local or S3 file that includes the following fields in CSV format:
+[Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+
+The elements of this script include:
+
+- Collecting and storing Account Information in a local or S3 file that includes the following fields in CSV format:
 
 `account-number`,`region`,`account-description`,'tag-name`
+
+- Creating a file that has the volume-level information used to construct and update a suite of CW Dashboards. This volume-level file has the following fields in csv format:
+
+`Account-Number`,`Account-Description`,`Region`,`Volume-ID`,`Volume-Status`,`Volume-Size`,`Volume-Type`,`Tag-Name`,`Tag-Value`
+
+- Reading the volume-level file and constructing / updating the CW Dashboard collection.
+- Cleaning up any dashboards that are no longer needed.
+
+## Risk and Open Questions
+
+- Figuring out how to deploy the cross-account, cross-region CW capabilities using automation.
+- Frequency and Impact of Dashboard updates - if these dashboards are actively used, what happens when the content is changed or the Dashboard deleted
+- Mechanisms to trigger the script(s) - options include SSM Automation (by an event or on a scheduler), CRON jobs on a EKS Pod
+- Expand behond EBS to other services, such as EC2, EKS, Network, and more.
 
 ## Pre-Requisits
 
@@ -17,7 +42,7 @@ Collecting and storing Account Information in a local or S3 file that includes t
 
 - [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py)]
 
-### To be developed
+### Utilities to be developed
 
 `ebs-xacct-util.py` - utility to list volumes, tag, etc across all included AWS Accounts.
 
