@@ -1,0 +1,12 @@
+{
+    "Credentials": {
+        "AccessKeyId": "ASIAVGIL6RGLPPULPU55",
+        "SecretAccessKey": "vvpXT21nTTSG+CtzcVmGOvv0Sl60hR/34WyL5n24",
+        "SessionToken": "IQoJb3JpZ2luX2VjEHUaCXVzLXdlc3QtMiJIMEYCIQCwaYK+LPn0MEoCStlZSpRUa3iTCUDi4ByEguZ/tXeCWwIhAO5EpmH+FsUpvuCn6Q8kY2sJhiD82yCcWij3+1TYqhZCKp0CCH4QAhoMMzU3MDQ0MjI2NDU0IgzhErx3SuyK19DteNQq+gF+KTNfU1e1zvXSHCq2/8aSHo88KQlpmr7s3vVh/t7fGBYtQsIZ9wRdl6J7PomkVxBlskGLNpALXSfZPC0W4yhSUTbfzHvX2cMtEW1bacs3gIIB7OjBbEr+P19nsns0tkZLWN433SqLVW9jUivC7AASFaJx1qo7WQ5NgZxVXn1nIUK76Ke8TXMTDxlOFLsNY9qATeOjnl93zvJMePDNBAqfCC7daue8B/q3VPxL5luUZgocXcJ7NMB5/lP2zR5NyJ6c3blVMLZWxSGIbKjjextAZ/VTgSgL8rUYr3w8SRqrVlmTxOpnWmkW2X8ecdQUPG1f/y1tVm/fSe5PMM/ugakGOpwB+B0tKZvQu5YT7SLVH/BIPxBBNBcfrrxhEk4MAmj9d2YXp6UAoRavqSxz5kGensYIiJk3tU8aj4vEqv8BmeSAzMwXiOPxBWuu0gP14MG2oRB1oRh35cEs29eJmOAeAj6vcjnOLqnKYCiD1HOhyFHtw31pLiSOSgGP+B/OryA3GqIq6CpTNLR9S3/l1JuZabwO7DGJ+nAQvYT68+OD",
+        "Expiration": "2023-10-06T22:08:31+00:00"
+    },
+    "AssumedRoleUser": {
+        "AssumedRoleId": "AROAVGIL6RGLJ5PYKMUFK:crossAccountTest",
+        "Arn": "arn:aws:sts::357044226454:assumed-role/CrossAccountObservabilityRole/crossAccountTest"
+    }
+}
