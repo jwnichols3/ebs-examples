@@ -4,33 +4,26 @@
 
 ## Overview
 
-Collecting and storing Accounts to include.
+Collecting and storing Account Information in a local or S3 file that includes the following fields in CSV format:
 
-- Text File
-- S3 Object
-
-The format of the Accounts file - tabular format - simple
-
-`Account Number [tab] Region [tab] Account Name [tab] Account Description`
-
-The format of the Accounts file - tabular format - with tag.
-
-`Account Number [tab] Region [tab] Account Name [tab] Tag [tab] Account Description`
+`account-number`,`region`,`account-description`,'tag-name`
 
 ## Pre-Requisits
 
-Cross-Account, Cross Region setup.
-IAM Policies
+- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md).
+- IAM Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
 
 ## Utilities
+
+- [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py)]
+
+### To be developed
 
 `ebs-xacct-util.py` - utility to list volumes, tag, etc across all included AWS Accounts.
 
 `ebs-cw-xacct-latency.py` - utility to list CW metrics that make up read/write latency across all EBS volumes across all AWS Accounts.
 
 `ebs-cw-xacct-impairedvol.py` - utility to list CW metrics that make up Impaired Volume across all EBS volumes across all AWS Accounts.
-
-`ebs-cw-dashboard-xacct-by-tag` -
 
 ## Dashboards
 
