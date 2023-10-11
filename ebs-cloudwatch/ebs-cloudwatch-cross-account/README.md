@@ -2,12 +2,12 @@
 
 ## Progress Tracking
 
-[x] Cross-Account Access via IAM [Terraform](./cross-account-setup-data-gather-terraform/)
-[x] Cross-Account CW data flow [Information](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md)
-[x] Collecting EBS Volumes based on a list of accounts and tags [MVP Python Script](./part1-collect-data-with-tags.py)
-[x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
-[ ] CW Dashboard construction script
-[ ] CW Dashboard clean up script
+- [x] Cross-Account Access via IAM [Terraform](./cross-account-setup-data-gather-terraform/)
+- [x] Cross-Account CW data flow [Information](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md)
+- [x] Collecting EBS Volumes based on a list of accounts and tags [MVP Python Script](./part1-collect-data-with-tags.py)
+- [x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
+- [ ] CW Dashboard construction script
+- [ ] CW Dashboard clean up script
 
 ## Overview
 
