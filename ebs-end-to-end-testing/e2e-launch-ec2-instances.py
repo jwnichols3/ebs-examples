@@ -1,9 +1,11 @@
 import boto3
 import botocore.exceptions
 import os
+import re
 import sys
 import time
 import argparse
+import configparser
 import base64
 import uuid
 from tabulate import tabulate
@@ -16,21 +18,56 @@ def main():
     args = parse_args()
     init_logging(args)
 
+    if args.launchrun_list:
+        if args.region:
+            # Only list for the specified region
+            ec2_client, ec2_resource = initialize_aws_clients(args.region)
+            print(f"\n=== Checking LaunchRuns for region {args.region} ===")
+            list_unique_launch_runs(
+                ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
+            )
+        else:
+            all_unique_launch_runs = []
+            # List for all available regions
+            ec2_client_for_region_list = boto3.client("ec2", region_name="us-east-1")
+            regions = [
+                region["RegionName"]
+                for region in ec2_client_for_region_list.describe_regions()["Regions"]
+            ]
+            for region in regions:
+                ec2_client, ec2_resource = initialize_aws_clients(region)
+                print("\n=====================================================")
+                print(f"--- {region}: Checking LaunchRuns")
+                unique_launch_runs = list_unique_launch_runs(
+                    ec2_client=ec2_client, ec2_resource=ec2_resource, region=region
+                )
+                print("\n")
+                if unique_launch_runs:
+                    all_unique_launch_runs.extend(
+                        [(region, launch_run) for launch_run in unique_launch_runs]
+                    )
+
+            print("\n=== Summary of All Unique LaunchRuns Across All Regions ===")
+            for region, launch_run in all_unique_launch_runs:
+                print(f"{region}: {launch_run}")
+
+        return
+
+    #    if args.launchrun_list:
+    #        list_unique_launch_runs(
+    #            ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
+    #        )
+    #        return
+
     if args.region is None:
-        # This is an outlier check - the other parameters are checked once the aws resources are initilized.
-        # edit this list of regions as needed
+        region_list = get_region_list()
+        if region_list is None:
+            region_list = ["us-east-1", "us-east-2", "us-west-2", "eu-west-1"]
         args.region = prompt_for_choice(
-            ["us-east-1", "us-east-2", "us-west-2", "eu-west-1"],
-            "Please select a region (by number): ",
+            region_list, "Please select a region (by number): "
         )
 
     ec2_client, ec2_resource = initialize_aws_clients(args.region)
-
-    if args.launchrun_list:
-        list_unique_launch_runs(
-            ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
-        )
-        return
 
     if args.terminate:
         terminate_instances_by_launch_run(
@@ -54,6 +91,7 @@ def main():
         ec2_resource=ec2_resource,
         quiet=args.quiet,
         vol_type=args.vol_type,
+        clustername=args.clustername,
     )
 
 
@@ -237,6 +275,14 @@ def get_latest_amazon_linux_ami(ec2_client):
     return amis[0]["ImageId"]
 
 
+def get_region_list():
+    try:
+        with open("region-list.txt", "r") as f:
+            return [line.strip() for line in f]
+    except FileNotFoundError:
+        return None
+
+
 def validate_sg_and_subnet(ec2_client, security_group, subnet_id):
     sg_response = ec2_client.describe_security_groups(GroupIds=[security_group])
     subnet_response = ec2_client.describe_subnets(SubnetIds=[subnet_id])
@@ -280,17 +326,19 @@ def list_unique_launch_runs(ec2_client, ec2_resource, region):
                 unique_launch_runs.add(tag["Value"])
 
     if not unique_launch_runs:
-        print("No active LaunchRuns found.")
-        logging.error("No active LaunchRuns found.")
+        # print("No active LaunchRuns found.")
+        logging.info(f"No active LaunchRuns found in {region}.\n\n")
         return
     print("Unique active LaunchRun IDs:")
     for launch_run in unique_launch_runs:
         print(f"- {launch_run}")
 
-    print("\nHere are the terminate options for each launch run: \n")
+    print("\nHere are the terminate options for each launch run:")
 
     for launch_run_terminate in unique_launch_runs:
         print(f"--terminate {launch_run_terminate} --region {region}")
+
+    return unique_launch_runs
 
 
 def handle_user_inputs(
@@ -302,9 +350,13 @@ def handle_user_inputs(
     security_group,
     ec2_client,
     vol_type,
+    clustername,
 ):
     if instance_count is None:
         instance_count = int(input("Please enter the number of instances: "))
+
+    if volume_count is None:
+        volume_count = int(input("Please enter the number of volumes per instance: "))
 
     if vol_type is None:
         allowed_vol_types = ["gp2", "gp3", "st1", "sc1", "io2"]
@@ -313,8 +365,15 @@ def handle_user_inputs(
             "Please enter type of volume (by number): ",
             allowed_choices=allowed_vol_types,
         )
-    if volume_count is None:
-        volume_count = int(input("Please enter the number of volumes per instance: "))
+
+    if clustername is None:
+        clustername = input("Please enter the cluster name: ")
+        # Remove spaces and special characters
+        clustername = re.sub(r"[^\w]", "", clustername)
+        if not clustername:
+            clustername = "NA"
+        print(f"ClusterName Tag: {clustername}")
+
     if key_name is None:
         available_keys = get_key_pairs(ec2_client)
         if available_keys:
@@ -359,6 +418,7 @@ def handle_user_inputs(
             "Please select a Security Group (by number): ",
         )
         security_group = selected_option[0]
+
     return (
         instance_count,
         volume_count,
@@ -367,6 +427,7 @@ def handle_user_inputs(
         az,
         security_group,
         vol_type,
+        clustername,
     )
 
 
@@ -491,6 +552,7 @@ def launch_instances(
     ec2_resource,
     quiet,
     vol_type,
+    clustername,
 ):
     launch_run_id = generate_launch_run_id()
     logging.info(f"LaunchRun ID: {launch_run_id}")
@@ -504,6 +566,7 @@ def launch_instances(
         az,
         security_group,
         vol_type,
+        clustername,
     ) = handle_user_inputs(
         instance_count=instance_count,
         volume_count=volume_count,
@@ -513,6 +576,7 @@ def launch_instances(
         security_group=security_group,
         ec2_client=ec2_client,
         vol_type=vol_type,
+        clustername=clustername,
     )
     launch_params = prepare_launch_params(
         instance_count=instance_count,
@@ -530,12 +594,14 @@ def launch_instances(
             "ResourceType": "instance",
             "Tags": [
                 {"Key": "LaunchRun", "Value": launch_run_id},
+                {"Key": "ClusterName", "Value": clustername},
             ],
         },
         {
             "ResourceType": "volume",
             "Tags": [
                 {"Key": "LaunchRun", "Value": launch_run_id},
+                {"Key": "ClusterName", "Value": clustername},
             ],
         },
     ]
@@ -588,6 +654,7 @@ def parse_args():
     parser.add_argument("--az", type=str, help="AWS availability zone.")
     parser.add_argument("--key", type=str, help="EC2 key pair name.")
     parser.add_argument("--sg", type=str, help="Security group ID.")
+    parser.add_argument("--clustername", type=str, help="Cluster name tag.")
     parser.add_argument(
         "--style", type=str, default="plain", help="Table style for tabulate."
     )
