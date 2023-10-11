@@ -1,0 +1,30 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 13,
+      "height": 7,
+      "properties": {
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [
+            "AWS/EBS",
+            "VolumeReadOps",
+            "VolumeId",
+            "vol-0bb9d6db805d7029c",
+            { "accountId": "338557412966" }
+          ],
+          [
+            "...",
+            "vol-016a5a15454c3e751",
+            { "accountId": "357044226454", "region": "us-east-1" }
+          ]
+        ],
+        "region": "us-west-2"
+      }
+    }
+  ]
+}
