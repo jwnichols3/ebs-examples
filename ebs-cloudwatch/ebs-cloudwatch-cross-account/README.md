@@ -1,6 +1,6 @@
 # EBS CloudWatch Monitoring - Cross Account and Cross Region
 
-## Progress Tracking
+## Progress Tracking (MVP)
 
 - [x] Cross-Account Access via IAM [Terraform](./cross-account-setup-data-gather-terraform/)
 - [x] Cross-Account CW data flow [Information](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md)
@@ -8,6 +8,12 @@
 - [x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
 - [ ] CW Dashboard construction script
 - [ ] CW Dashboard clean up script
+
+## Progress Tracking (Post-MVP)
+
+- [ ] Automation of CW Cross-Account data flow setup.
+- [ ] Mechanisms to trigger the CW Dashboard scripts
+- [ ] Lambda versions of the script(s)
 
 ## Overview
 

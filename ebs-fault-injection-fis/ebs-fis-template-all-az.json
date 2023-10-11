@@ -1,0 +1,100 @@
+{
+  "description": "EBS Stuck Volumes All AZs by Tag (FIS-Scope = 1) for 10 min (2a -> 2c / 2b -> 2d)",
+  "targets": {
+    "FIS-Include-2a": {
+      "resourceType": "aws:ec2:ebs-volume",
+      "resourceTags": {
+        "FIS-Include": "1"
+      },
+      "selectionMode": "ALL",
+      "parameters": {
+        "availabilityZoneIdentifier": "us-west-2a"
+      }
+    },
+    "FIS-Include-2b": {
+      "resourceType": "aws:ec2:ebs-volume",
+      "resourceTags": {
+        "FIS-Include": "1"
+      },
+      "selectionMode": "ALL",
+      "parameters": {
+        "availabilityZoneIdentifier": "us-west-2b"
+      }
+    },
+    "FIS-Include-2c": {
+      "resourceType": "aws:ec2:ebs-volume",
+      "resourceTags": {
+        "FIS-Include": "1"
+      },
+      "selectionMode": "ALL",
+      "parameters": {
+        "availabilityZoneIdentifier": "us-west-2c"
+      }
+    },
+    "FIS-Include-2d": {
+      "resourceType": "aws:ec2:ebs-volume",
+      "resourceTags": {
+        "FIS-Include": "1"
+      },
+      "selectionMode": "ALL",
+      "parameters": {
+        "availabilityZoneIdentifier": "us-west-2d"
+      }
+    }
+  },
+  "actions": {
+    "pause-io-2a": {
+      "actionId": "aws:ebs:pause-volume-io",
+      "parameters": {
+        "duration": "PT10M"
+      },
+      "targets": {
+        "Volumes": "FIS-Include-2a"
+      }
+    },
+    "pause-io-2b": {
+      "actionId": "aws:ebs:pause-volume-io",
+      "description": "Pause EBS I/O",
+      "parameters": {
+        "duration": "PT10M"
+      },
+      "targets": {
+        "Volumes": "FIS-Include-2b"
+      }
+    },
+    "pause-io-2c": {
+      "actionId": "aws:ebs:pause-volume-io",
+      "parameters": {
+        "duration": "PT10M"
+      },
+      "targets": {
+        "Volumes": "FIS-Include-2c"
+      }
+    },
+    "pause-io-2d": {
+      "actionId": "aws:ebs:pause-volume-io",
+      "parameters": {
+        "duration": "PT10M"
+      },
+      "targets": {
+        "Volumes": "FIS-Include-2d"
+      },
+      "startAfter": ["pause-io-2b"]
+    }
+  },
+  "stopConditions": [
+    {
+      "source": "none"
+    }
+  ],
+  "roleArn": "arn:aws:iam::338557412966:role/service-role/AWSFISIAMRole-1690349275750",
+  "tags": {
+    "Name": "ebs-by-tag-5m"
+  },
+  "logConfiguration": {
+    "cloudWatchLogsConfiguration": {
+      "logGroupArn": "arn:aws:logs:us-west-2:338557412966:log-group:fis:*"
+    },
+    "logSchemaVersion": 2
+  }
+}
