@@ -1,11 +1,11 @@
 import boto3
 import csv
-import tempfile
-import shutil
+import json
 import argparse
 import os
 import sys
 import logging
+from collections import defaultdict
 
 # CONSTANTS
 EBS_PAGINATION = 300
@@ -13,8 +13,8 @@ DEFAULT_REGION = "us-west-2"
 DEFAULT_S3_REGION = "us-west-2"
 DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
 DEFAULT_S3_KEY_PREFIX = ""
-DEFAULT_DATA_FILE = "ebs-data.csv"
-DEFAULT_DATA_FILE_SOURCE = "local"  # can be "local" or "s3"
+DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
+DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"  # can be "local" or "s3"
 DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 
 
@@ -52,8 +52,8 @@ def main():
     # Initialize S3 client (you can also use assumed role credentials here)
     s3_client = boto3.client("s3", region_name=s3_region)
 
-    # Read EBS Data
-    ebs_data = read_ebs_data(
+    # Read Construction Data
+    construction_data = read_construction_data(
         source=data_file_source,  # This should be defined in argparse
         s3_client=s3_client,
         bucket_name=bucket_name,
@@ -61,12 +61,25 @@ def main():
         file_name=data_file,
     )
 
-    # Process EBS Data
-    processed_data = process_ebs_data(ebs_data)
+    # Process Construction Data
+    processed_data = process_construction_data(construction_data=construction_data)
 
-    # Output
-    for data in processed_data:
-        print(data)
+    output_data(processed_data)
+
+
+def output_data(processed_data):
+    for tag_name, tag_values in processed_data.items():
+        for tag_value, regions in tag_values.items():
+            for region, account_numbers in regions.items():
+                for account_number, details in account_numbers.items():
+                    dashboard_name = details.get("dashboard_name", "")
+                    graph_contents = details.get("graph_contents", [])
+
+                    print(f"Dashboard Name: {dashboard_name}")
+                    print(
+                        f"Graph Contents: {json.dumps(graph_contents, indent=4)}"
+                    )  # Format as JSON
+                    print("\n")
 
 
 def init_logging(level):
@@ -78,7 +91,7 @@ def init_logging(level):
     )
 
 
-def read_ebs_data(
+def read_construction_data(
     source, s3_client=None, bucket_name=None, key_prefix=None, file_name=None
 ):
     content = []
@@ -96,20 +109,40 @@ def read_ebs_data(
     return content
 
 
-def process_ebs_data(ebs_data):
-    processed_data = []
-    for row in ebs_data:
+def process_construction_data(construction_data):
+    structured_data = nested_dict()
+
+    for row in construction_data:
         tag_name = row.get("Tag-Name", "")
         tag_value = row.get("Tag-Value", "")
         volume_id = row.get("Volume-ID", "")
         region = row.get("Region", "")
         account_number = row.get("Account-Number", "")
 
-        processed_data.append(
-            f"{tag_name}_{tag_value}_{volume_id}_{region}_{account_number}"
-        )
+        dashboard_name = f"{tag_name}_{tag_value}_{region}_{account_number}"
+        # graph_content = f"{tag_name}_{tag_value}_{volume_id}_{region}_{account_number}"
+        graph_content = build_graph_content(volume_id, region)
 
-    return processed_data
+        target = structured_data[tag_name][tag_value][region][account_number]
+
+        target["dashboard_name"] = dashboard_name
+        # target.setdefault("graph_contents", []).append(json.dumps(graph_content))
+        target.setdefault("graph_contents", []).append(graph_content)
+
+    return structured_data
+
+
+def nested_dict():
+    return defaultdict(nested_dict)
+
+
+def build_graph_content(volume_id, region):
+    graph_name = f"{volume_id}_{region}"
+    return {
+        "Graph Name": graph_name,
+        "Metric 1": "manually_constructed_metric_1",
+        "Metric 2": "manually_constructed_metric_2",
+    }
 
 
 def initialize_aws_clients(region):
@@ -155,15 +188,15 @@ def parse_args():
     parser.add_argument(
         "--data-file",
         type=str,
-        default=DEFAULT_DATA_FILE,
-        help=f"Specify the output file name. Defaults to {DEFAULT_DATA_FILE}.",
+        default=DEFAULT_CONSTRUCTION_DATA_FILE,
+        help=f"Specify the output file name. Defaults to {DEFAULT_CONSTRUCTION_DATA_FILE}.",
     )
     parser.add_argument(
         "--data-file-source",
         type=str,
         choices=["s3", "local"],
-        default=DEFAULT_DATA_FILE_SOURCE,
-        help="Specify the source of the data information file. Choices are: s3, local. Defaults to {DEFAULT_DATA_FILE_SOURCE}.",
+        default=DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE,
+        help="Specify the source of the data information file. Choices are: s3, local. Defaults to {DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
     )
     parser.add_argument(
         "--logging",
