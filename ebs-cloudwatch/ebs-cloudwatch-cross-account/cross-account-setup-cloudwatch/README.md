@@ -34,7 +34,7 @@ Here are some other ways the account lists are needed during the ClickOps setup:
 
 ### IAM Policy - Source Accounts
 
-The IAM Policy `CloudWatch-CrossAccountSharingRole` in each of the Source Accounts has the `sts:AssumeRole` Trust Relationship as follows:
+The IAM Policy `CloudWatch-CrossAccountSharingRole` in each of the Source Accounts has the `sts:AssumeRole` Trust Relationship. Note the Account Number in the `Principal` is the "Monitoring" account above.
 
 ```json
 {
@@ -66,7 +66,7 @@ In this example, a secondary Observability Account is configured. In this case, 
 
 ### IAM Policy - Multiple Monitoring Accounts
 
-The IAM Policy `CloudWatch-CrossAccountSharingRole` in each of the Source Accounts has the `sts:AssumeRole` Trust Relationship as follows (include all Monitoring Accounts):
+The IAM Policy `CloudWatch-CrossAccountSharingRole` in each of the Source Accounts has the `sts:AssumeRole` Trust Relationship. Note there are `Principal` entries for each of the "Monitoring" account above.
 
 ```json
 {
