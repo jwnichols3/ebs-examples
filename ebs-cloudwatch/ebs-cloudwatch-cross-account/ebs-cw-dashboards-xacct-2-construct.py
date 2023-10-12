@@ -26,10 +26,11 @@ def main():
     bucket_name = args.bucket_name
     key_prefix = args.key_prefix
     data_file = args.data_file
-    data_file_source = args.data_file_source  # Add this to argparse
+    data_file_source = args.data_file_source
+    s3_region = args.s3_region
 
     # Check if the data file exists
-    if args.data_file_source == "local":
+    if data_file_source == "local":
         if not os.path.exists(data_file):
             logging.error(f"Error: Account file '{data_file}' not found.")
             exit(1)
@@ -40,24 +41,24 @@ def main():
             if key_prefix
             else f"s3://{bucket_name}/{data_file}"
         )
-        print(f"Using account file from S3: {s3_path}")
+        print(f"Using data file from S3: {s3_path}")
 
     available_regions = boto3.session.Session().get_available_regions("s3")
-    if args.s3_region not in available_regions:
-        logging.error(f"Error: The specified S3 region {args.s3_region} is not valid.")
+    if s3_region not in available_regions:
+        logging.error(f"Error: The specified S3 region {s3_region} is not valid.")
         logging.error(f"Available regions are: {available_regions}")
         exit(1)
 
     # Initialize S3 client (you can also use assumed role credentials here)
-    s3_client = boto3.client("s3", region_name=args.s3_region)
+    s3_client = boto3.client("s3", region_name=s3_region)
 
     # Read EBS Data
     ebs_data = read_ebs_data(
-        args.data_file_source,  # This should be defined in argparse
-        s3_client,
-        bucket_name,
-        key_prefix,
-        data_file,
+        source=data_file_source,  # This should be defined in argparse
+        s3_client=s3_client,
+        bucket_name=bucket_name,
+        key_prefix=key_prefix,
+        file_name=data_file,
     )
 
     # Process EBS Data
@@ -78,18 +79,18 @@ def init_logging(level):
 
 
 def read_ebs_data(
-    source, s3_client=None, bucket_name=None, key_prefix=None, local_path=None
+    source, s3_client=None, bucket_name=None, key_prefix=None, file_name=None
 ):
     content = []
     if source == "s3":
-        s3_key = local_path if not key_prefix else f"{key_prefix}/{local_path}"
+        s3_key = file_name if not key_prefix else f"{key_prefix}/{file_name}"
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
         csv_reader = csv.DictReader(
             response["Body"].read().decode("utf-8").splitlines()
         )
         content = [row for row in csv_reader]
     else:
-        with open(local_path, mode="r") as file:
+        with open(file_name, mode="r") as file:
             csv_reader = csv.DictReader(file)
             content = [row for row in csv_reader]
     return content
