@@ -5,9 +5,9 @@
 - [x] Cross-Account Access via IAM [Terraform](./cross-account-setup-data-gather-terraform/)
 - [x] Cross-Account CW data flow [Information](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md)
 - [x] Collecting EBS Volumes based on a list of accounts and tags [MVP Python Script](./part1-collect-data-with-tags.py)
-- [x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
-- [ ] CW Dashboard construction script
-- [ ] CW Dashboard clean up script
+- [x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./ebs-cw-dashboards-xacct-1-gather-data.py)
+- [ ] CW Dashboard construction script [MVP Python Script](./ebs-cw-dashboards-xacct-2-construct.py)
+- [ ] CW Dashboard clean up script [MVP Python Script](./ebs-cw-dashboards-xacct-3-cleanup.py)
 - [ ] CW Dashboard Navigation Dashboard
 
 ## Progress Tracking (Post-MVP)
@@ -20,17 +20,20 @@
 
 [Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
 
-The elements of this script include:
+The elements of this effort include:
 
-- Collecting and storing Account Information in a local or S3 file that includes the following fields in CSV format:
+- Reading a csv formatted file with a list of AWS Accounts. This Account Information file is local or S3. It has the following fields in CSV format:
 
 `account-number`,`region`,`account-description`,'tag-name`
 
-- Creating a file that has the volume-level information used to construct and update a suite of CW Dashboards. This volume-level file has the following fields in csv format:
+- Cycling through each AWS Account for each specified region, collecting the EBS volumes based on the tag-name. (A Cross Account IAM Role is required to access the target accounts and query for the tagged resources. See below for the relevant IAM configuration)
+
+- Creating a data file that has the volume-level information. The contents of this file is used to construct and update a suite of CW Dashboards. This file can reside locally or in S3 and has the following fields in csv format:
 
 `Account-Number`,`Account-Description`,`Region`,`Volume-ID`,`Volume-Status`,`Volume-Size`,`Volume-Type`,`Tag-Name`,`Tag-Value`
 
-- Reading the volume-level file and constructing / updating the CW Dashboard collection.
+- Reading the data file and constructing / updating the CW Dashboard collection.
+
 - Cleaning up any dashboards that are no longer needed.
 
 ## Risk and Open Questions
@@ -45,9 +48,23 @@ The elements of this script include:
 - [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md).
 - IAM Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
 
+### Cross Account IAM Role
+
+There is the main account, the one you'll run the scripts from, then there are target accounts that the role will access. This concept is a tad backwards from how the cross-account CloudWatch data flow setup is done.
+
+TODO: Reconcile the naming to match the cross-account CloudWatch data flow setup terminology. Perhaps call the main account running the scripts the "monitoring account" and the target accounts being accessed the "observed accounts".
+
+In the main observability account (or the one that you'll run the scripts from), create an IAM role with the following trust relationship and policies:
+
+TODO: Insert IAM policy statement
+
+In the target accounts (source accounts), add a policy to the cross account role that allows getting relevant information in those accounts.
+
+TODO: Insert IAM policy statement
+
 ## Utilities
 
-- [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py)]
+- [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py)] - this is an example Python script that deploys EC2 instances for testing purposes. Each EC2 and EBS volume deployed is tagged consistently so they can be terminated after testing. There are options for the number of instances, number and type of EBS volumes to attach to each instance, and the ability to deploy to different AWS Regions.
 
 ### Utilities to be developed
 
@@ -67,7 +84,7 @@ Each sub-dashboard has a unique combination of Account Number, Region, and Tag N
 
 For example, as sub-dashboard might look something like:
 
-`EBS_ClusterName_Cluster123_1_us-west-2_123456`
+`EBS_ClusterName_Cluster123_1_us-west-2_12345678901234`
 
 ### CloudWatch Dashboard Considerations
 
@@ -76,13 +93,21 @@ The constraints for CloudWatch Dashboards exist. Currently there are two main co
 - Metrics per Dashboard
 - Metrics per Graph
 
-For this effort, I am going to exit the script if the metrics per graph exceed the limit. For the Metrics per Dashboard, the script will shard the dashboards.
+For this effort, the script exits if the metrics per graph exceed the limit. For the Metrics per Dashboard, the script will shard the dashboards, for example:
+
+- `EBS_ClusterName_Cluster123_1_us-west-2_12345678901234`
+- `EBS_ClusterName_Cluster123_2_us-west-2_12345678901234`
 
 ### Construction by Tag
 
-The hypothesis is that for larger deployments, the way to manage EBS dashboards and alarms is by leveraging Tags to navigate. With a multi-account strategy, the tags become critical to the management of the Dashboards.
+Hypothesis: for larger deployments, the way to manage EBS dashboards and alarms is by leveraging Tags to navigate. With a multi-account strategy, the tags become critical to the management of the Dashboards.
 
-The assumption is the central account list will include all of the relevant Tag Names for each account. For example, if an account has ClusterName as a tag - that is one entry on the account list. If there is a second tag for the same account called Environment, that will be a separate line item in the Account List. The term for this concept is tabular data - every row has all data elements.
+The account list will include all of the relevant Tag Names for each account. For example, if an account has ClusterName as a tag - that is one entry on the account list. If there is a second tag for the same account called Environment, that will be a separate line item in the Account List. The term for this concept is tabular data - every row has all data elements. Here is an example:
+
+`12345678901234`,`us-west-2`,`SuperAppProd`,'ClusterName`
+`12345678901234`,`us-west-2`,`SuperAppProd`,'AppName`
+`12345678901234`,`us-east-2`,`SuperAppProd`,'ClusterName`
+`12345678901234`,`us-east-2`,`SuperAppProd`,'AppName`
 
 ### Dashboard Navigation
 
@@ -90,27 +115,31 @@ A singluar Navigation Dashboard called **EBS_NAV** will have widgets with link t
 
 A secondary navigation dashboard by Account & Region
 
-_EBS_NAV_
+```markdown
+- _EBS_NAV_
 
-\_EBS_NAV_Account Description
+  - \_EBS_NAV_Account Description
 
-\_EBS_NAV_Account Description_Region
+    - \_EBS_NAV_Account Description_Region
 
-\_EBS_NAV_Region
+  - \_EBS_NAV_Region
 
-\_EBS_NAV_Region_Account Description
+    - \_EBS_NAV_Region_Account Description
 
-\_EBS_NAV_Region_Account Description_Account Number
+      - \_EBS_NAV_Region_Account Description_Account Number
+```
 
-### Sub-Dashboard
+### Sub-Dashboard Patterns
 
 Structure:
-[Link to _EBS_NAV_ Dashboard]
+`[Link to _EBS_NAV_ Dashboard]`
+
 [Widget with each EBS Volume with key EBS Metrics] (assuming each Widget has less than 500 metrics)
 
 Dashboard sharding will happen when the Dashboard reaches the maxium number of metrics per dashboard.
 
-Name:
-EBS*<TagName>*<TagValue>_<#>_<AcctName>\_<AcctNum> - where <#> is the shard number
+Dashboard Name:
+`EBS_<TagName>_<TagValue>_<#>_<AcctName>_<AcctNum>` - where <#> is the shard number
 
-EBS*<TagName>*<TagValue>_<VolId>_<AcctName>\_<AcctNum>
+Widget Name
+`EBS_<TagName>_<TagValue>_<VolId>_<AcctName>_<AcctNum>`
