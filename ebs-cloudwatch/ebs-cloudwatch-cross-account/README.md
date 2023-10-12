@@ -13,10 +13,13 @@
 ## Progress Tracking (Post-MVP)
 
 - [ ] Automation of CW Cross-Account data flow setup.
-- [ ] Mechanisms to trigger the CW Dashboard scripts
-- [ ] Lambda versions of the script(s)
+- [ ] Enabling multiple CW Cross-Account "monitoring" accounts (accounts where the dashboards are displayed)
+- [ ] Mechanisms to trigger the CW Dashboard scripts.
+- [ ] Lambda versions of the script(s).
 
-## Overview
+## Overview and Structure
+
+TODO: Insert Visual
 
 [Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
 
