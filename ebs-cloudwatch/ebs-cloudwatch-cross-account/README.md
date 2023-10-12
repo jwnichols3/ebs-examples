@@ -8,6 +8,7 @@
 - [x] Writing the EBS Volume data to a file for use by the CW Dashboard construction script [MVP Python Script](./part1-collect-data-with-tags.py)
 - [ ] CW Dashboard construction script
 - [ ] CW Dashboard clean up script
+- [ ] CW Dashboard Navigation Dashboard
 
 ## Progress Tracking (Post-MVP)
 
@@ -58,14 +59,30 @@ The elements of this script include:
 
 ## Dashboards
 
+The CloudWatch Dashboard "Ecosystem" is a collection based on the Account Number, Region, and Specific Tag Names.
+
+At the top level if a "navigation" dashboard that links to the different sub-dashboards.
+
+Each sub-dashboard has a unique combination of Account Number, Region, and Tag Name/Value. For scaling purposes, the dashboard limits are taken into consideration. Currently (Oct 2023) there is a 2500 metric limit per CW Dashboard. The logic will "shard" the dashboards.
+
+For example, as sub-dashboard might look something like:
+
+`EBS_ClusterName_Cluster123_1_us-west-2_123456`
+
 ### CloudWatch Dashboard Considerations
+
+The constraints for CloudWatch Dashboards exist. Currently there are two main constraints to consider:
 
 - Metrics per Dashboard
 - Metrics per Graph
 
+For this effort, I am going to exit the script if the metrics per graph exceed the limit. For the Metrics per Dashboard, the script will shard the dashboards.
+
 ### Construction by Tag
 
-The hypothesis is that for larger deployments, the way to manage EBS dashboards and alarms is by leveraging Tags to navigate. With a multi-account strategy
+The hypothesis is that for larger deployments, the way to manage EBS dashboards and alarms is by leveraging Tags to navigate. With a multi-account strategy, the tags become critical to the management of the Dashboards.
+
+The assumption is the central account list will include all of the relevant Tag Names for each account. For example, if an account has ClusterName as a tag - that is one entry on the account list. If there is a second tag for the same account called Environment, that will be a separate line item in the Account List. The term for this concept is tabular data - every row has all data elements.
 
 ### Dashboard Navigation
 
