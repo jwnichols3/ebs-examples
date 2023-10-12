@@ -9,12 +9,13 @@ import logging
 # CONSTANTS
 EBS_PAGINATION = 300
 DEFAULT_REGION = "us-west-2"
+DEFAULT_S3_REGION = "us-west-2"
 DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
 DEFAULT_S3_KEY_PREFIX = ""
 DEFAULT_DATA_FILE = "ebs-data.csv"
-DEFAULT_S3_REGION = "us-west-2"
-DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
+DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # can be "local" or "s3"
+DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 
 
 def main():
@@ -28,11 +29,18 @@ def main():
     data_file = args.data_file
 
     # Check if the account file exists
-    if not os.path.exists(account_file):
-        logging.error(f"Error: Account file '{account_file}' not found.")
-        exit(1)
-
-    print(f"Using account file: {account_file}")
+    if args.account_file_source == "local":
+        if not os.path.exists(account_file):
+            logging.error(f"Error: Account file '{account_file}' not found.")
+            exit(1)
+        print(f"Using account file: {account_file}")
+    else:
+        s3_path = (
+            f"s3://{bucket_name}/{key_prefix}/{account_file}"
+            if key_prefix
+            else f"s3://{bucket_name}/{account_file}"
+        )
+        print(f"Using account file from S3: {s3_path}")
 
     available_regions = boto3.session.Session().get_available_regions("s3")
     if args.s3_region not in available_regions:
@@ -42,6 +50,14 @@ def main():
 
     # Initialize S3 client (you can also use assumed role credentials here)
     s3_client = boto3.client("s3", region_name=args.s3_region)
+
+    account_file_lines = read_account_file(
+        source=args.account_file_source,
+        s3_client=s3_client,
+        bucket_name=args.bucket_name,
+        key_prefix=args.key_prefix,
+        local_path=args.account_file,
+    )
 
     try:
         # Create a single temp file to hold all data
@@ -65,22 +81,22 @@ def main():
             )
 
             # Read account info from CSV
-            with open(account_file, "r") as csvfile:
-                csvreader = csv.DictReader(csvfile)
-                logging.info(f"CSV Headers: {csvreader.fieldnames}")
-                for row in csvreader:
-                    account = row.get("account-number")
-                    region = row.get("region")
-                    account_description = row.get("account-description")
-                    tag_name = row.get("tag-name")
-                    handle_account_processing(
-                        account=account,
-                        region=region,
-                        account_description=account_description,
-                        main_csvwriter=main_csvwriter,
-                        role_name=role_name,
-                        tag_name=tag_name,
-                    )
+            #            with open(account_file_lines, "r") as csvfile:
+            csvreader = csv.DictReader(account_file_lines)
+            logging.info(f"CSV Headers: {csvreader.fieldnames}")
+            for row in csvreader:
+                account = row.get("account-number")
+                region = row.get("region")
+                account_description = row.get("account-description")
+                tag_name = row.get("tag-name")
+                handle_account_processing(
+                    account=account,
+                    region=region,
+                    account_description=account_description,
+                    main_csvwriter=main_csvwriter,
+                    role_name=role_name,
+                    tag_name=tag_name,
+                )
 
             main_tmpfile.flush()
 
@@ -198,6 +214,19 @@ def list_ebs_volumes(credentials, region, tag_name):
     return {"Volumes": all_volumes}
 
 
+def read_account_file(
+    source, s3_client=None, bucket_name=None, key_prefix=None, local_path=None
+):
+    if source == "s3":
+        s3_key = local_path if not key_prefix else f"{key_prefix}/{local_path}"
+        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        content = response["Body"].read().decode("utf-8")
+        return content.splitlines()
+    else:
+        with open(local_path, "r") as f:
+            return f.readlines()
+
+
 def read_and_print_s3_file(s3_client, bucket_name, s3_key):
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
@@ -256,6 +285,13 @@ def parse_args():
         type=str,
         default=DEFAULT_DATA_FILE,
         help=f"Specify the output file name. Defaults to {DEFAULT_DATA_FILE}.",
+    )
+    parser.add_argument(
+        "--account-file-source",
+        type=str,
+        choices=["s3", "local"],
+        default=DEFAULT_ACCOUNT_FILE_SOURCE,
+        help="Specify the source of the account information file. Choices are: s3, local. Defaults to {DEFAULT_ACCOUNT_FILE_SOURCE}.",
     )
     parser.add_argument(
         "--logging",
