@@ -45,7 +45,7 @@ The elements of this effort include:
 
 ## Pre-Requisits
 
-- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch/cross-account-setup-cloudwatch.md).
+- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch).
 - IAM Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
 
 ### Cross Account IAM Role
