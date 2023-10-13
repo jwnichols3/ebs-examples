@@ -66,7 +66,7 @@ def main():
     # Process Construction Data
     processed_data = process_construction_data(construction_data=construction_data)
 
-    output_data(processed_data)
+    # output_data(processed_data)
 
     create_dashboards(
         cloudwatch_client=cloudwatch_client, processed_data=processed_data
@@ -74,6 +74,10 @@ def main():
 
 
 def create_dashboards(cloudwatch_client, processed_data):
+    dashboard_count = 0
+    volume_count = 0
+    failed_dashboards = []
+
     for tag_name, tag_values in processed_data.items():
         for tag_value, regions in tag_values.items():
             for region, account_numbers in regions.items():
@@ -103,27 +107,40 @@ def create_dashboards(cloudwatch_client, processed_data):
                         print(
                             f"Successfully created/updated dashboard: {dashboard_name}"
                         )
+                        dashboard_count += 1
+                        volume_count += len(graph_contents)
+
+                        # Log Dashboard titles and related volume IDs
+                        logging.info(f"Dashboard Created/Updated: {dashboard_name}")
+                        for graph_content in graph_contents:
+                            volume_id = graph_content["Graph Name"].split("_")[0]
+                            logging.info(f"    Volume ID: {volume_id}")
+
                     except ClientError as e:
                         print(
                             f"Failed to create/update dashboard: {dashboard_name}. Error: {e}"
                         )
+                        failed_dashboards.append(dashboard_name)
+
+    print(f"\nSummary:")
+    print(f"Total Dashboards Created/Updated: {dashboard_count}")
+    print(f"Total Volumes: {volume_count}")
+    if failed_dashboards:
+        print(f"Failed Dashboards: {', '.join(failed_dashboards)}")
 
 
 def create_dashboard_body(dashboard_name, graph_contents, account_number, region):
     widgets = []
     x, y = 0, 0  # Initial coordinates for the widgets
 
-    for graph_content in graph_contents:
-        graph_content_json = json.loads(
-            graph_content
-        )  # Since graph_content is a JSON string
-        volume_id = graph_content_json["Graph Name"].split("_")[0]
+    for graph_content in graph_contents:  # No need to load it as JSON
+        volume_id = graph_content["Graph Name"].split("_")[0]
 
         widget = {
             "type": "metric",
             "x": x,
             "y": y,
-            "width": 12,
+            "width": 8,
             "height": 6,
             "properties": {
                 "view": "timeSeries",
@@ -131,11 +148,111 @@ def create_dashboard_body(dashboard_name, graph_contents, account_number, region
                 "metrics": [
                     [
                         "AWS/EBS",
+                        "VolumeTotalWriteTime",
+                        "VolumeId",
+                        volume_id,
+                        {
+                            "region": region,
+                            "accountId": account_number,
+                            "id": "m1",
+                            "label": f"{volume_id}_VolumeTotalWriteTime",
+                            "visible": False,
+                            "color": "#69ae34",
+                        },
+                    ],
+                    [
+                        "AWS/EBS",
+                        "VolumeWriteOps",
+                        "VolumeId",
+                        volume_id,
+                        {
+                            "region": region,
+                            "accountId": account_number,
+                            "id": "m2",
+                            "label": f"{volume_id}_VolumeWriteOps",
+                            "visible": False,
+                            "color": "#69ae34",
+                        },
+                    ],
+                    [
+                        "AWS/EBS",
+                        "VolumeQueueLength",
+                        "VolumeId",
+                        volume_id,
+                        {
+                            "region": region,
+                            "accountId": account_number,
+                            "id": "m3",
+                            "label": f"{volume_id}_VolumeQueueLength",
+                            "visible": True,
+                            "yAxis": "right",
+                            "color": "#08aad2",
+                        },
+                    ],
+                    [
+                        "AWS/EBS",
+                        "VolumeTotalReadTime",
+                        "VolumeId",
+                        volume_id,
+                        {
+                            "region": region,
+                            "accountId": account_number,
+                            "id": "m4",
+                            "label": f"{volume_id}_VolumeTotalReadTime",
+                            "visible": False,
+                            "color": "#dfb52c",
+                        },
+                    ],
+                    [
+                        "AWS/EBS",
                         "VolumeReadOps",
                         "VolumeId",
                         volume_id,
-                        {"accountId": account_number, "region": region},
-                    ]
+                        {
+                            "region": region,
+                            "accountId": account_number,
+                            "id": "m5",
+                            "label": f"{volume_id}_VolumeReadOps",
+                            "visible": False,
+                            "color": "#dfb52c",
+                        },
+                    ],
+                    [
+                        {
+                            "expression": "(m1 / m2) * 1000",
+                            "label": f"{volume_id}_WriteLatency",
+                            "id": "e1",
+                            "region": region,
+                            "accountId": account_number,
+                            "visible": True,
+                            "yAxis": "left",
+                            "color": "#69ae34",
+                        }
+                    ],
+                    [
+                        {
+                            "expression": "(m4 / m5) * 1000",
+                            "label": f"{volume_id}_ReadLatency",
+                            "id": "e2",
+                            "region": region,
+                            "accountId": account_number,
+                            "visible": True,
+                            "yAxis": "left",
+                            "color": "#dfb52c",
+                        }
+                    ],
+                    [
+                        {
+                            "expression": "IF(m3>0 AND m2+m5==0, 1, 0)",
+                            "label": f"{volume_id}_ImpairedVol",
+                            "id": "e3",
+                            "region": region,
+                            "accountId": account_number,
+                            "visible": True,
+                            "yAxis": "left",
+                            "color": "#fe6e73",
+                        }
+                    ],
                 ],
                 "region": region,  # Added based on your example
                 "period": 300,  # Added based on your example
@@ -145,7 +262,10 @@ def create_dashboard_body(dashboard_name, graph_contents, account_number, region
 
         widgets.append(widget)
 
-        x += 12  # Update x coordinate for next widget
+        x += 8  # Update x coordinate for next widget
+        if x > 23:  # Reset to next row
+            x = 0
+            y += 6
 
     dashboard_body = {"widgets": widgets}
 
