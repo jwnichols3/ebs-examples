@@ -61,11 +61,6 @@ def read_csv_from_local(file_path):
         return list(csv.DictReader(f))
 
 
-# def read_csv_from_local(file_path):
-#    with open(file_path, "r") as f:
-#        return csv.DictReader(f)
-
-
 def validate_file_and_region(args):
     data_file_source = args.data_file_source
     data_file = args.data_file
