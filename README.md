@@ -8,8 +8,9 @@ In addition to the Python scripts, there are AWS Systems Manager automations tha
 
 # Updates
 
-_Aug 28, 2023_ Moved the EBS CloudWatch scripts to the [ebs-cloudwatch](./ebs-cloudwatch/) folder.
-_Sept 12, 2023_ New cross-account, cross-region CloudWatch Dashboards script that aggregates metrics from multiple AWS accounts and regions into a single dashboard for easier monitoring. [CW Dashboard Cross Account, Cross Region README](./ebs-cloudwatch/ebs-cloudwatch-cross-account/)
+- _Aug 28, 2023_ Moved the EBS CloudWatch scripts to the [ebs-cloudwatch](./ebs-cloudwatch/) folder.
+
+- _Sept 12, 2023_ New cross-account, cross-region CloudWatch Dashboards script that aggregates metrics from multiple AWS accounts and regions into a single dashboard for easier monitoring. [CW Dashboard Cross Account, Cross Region README](./ebs-cloudwatch/ebs-cloudwatch-cross-account/)
 
 # Disclaimer
 
