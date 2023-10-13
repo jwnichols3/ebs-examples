@@ -28,8 +28,8 @@ TODO: Insert Visual
 Here are some of the elements involved:
 
 - `Tags = Way to Group Dashboards` - the assumption is all AWS resources (EBS, EC2, etc) have a tag that can be leveraged to identify a way to group the dashboards. For example, the Application, relevant HDFS cluster, or similar.
-  'account-info.csv' - a tabular data structure that has account number, region, account description, and tag name (tag name is how the Dashboards are grouped). This can be a local file or an S3 object.
-- 'Cross Account Role` - a cross-account "readonly "role that has access to gather the EBS and EC2 data (and, eventually other services).
+  `account-info.csv` - a tabular data structure that has account number, region, account description, and tag name (tag name is how the Dashboards are grouped). This can be a local file or an S3 object.
+- `Cross Account Role` - a cross-account "readonly "role that has access to gather the EBS and EC2 data (and, eventually other services).
 - `Gather Data Python Script` - the script that reads the `account-info.csv` to get the list of accounts, regions, and tags, then connects to the accounts using the `CrossAccountRole` to gather the list of EBS volumes that match the \* `Tag Name` then writes the list to `ebs-data-csv` file. The assumption is the `Tag Name` is present for all dashboard items and is used to identify grouping, such as for Cluster.
 - `ebs-data.csv` - the file (tabular csv format) that stores the list of EBS Volumes, This file is used by the `CloudWatch Dashboard Construction` script. This can be a local file or an S3 object.
 - `CloudWatch Dashboard Construction Python Script` - A script that reads `ebs-data.csv` to construct the ecosystem of CloudWatch Dashboards by Tag Name, Region, and Account. On each Dashboard are all the related EBS Volumes.
