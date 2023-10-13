@@ -1,4 +1,5 @@
 import boto3
+from botocore.exceptions import ClientError
 import csv
 import json
 import argparse
@@ -51,6 +52,7 @@ def main():
 
     # Initialize S3 client (you can also use assumed role credentials here)
     s3_client = boto3.client("s3", region_name=s3_region)
+    cloudwatch_client = boto3.client("cloudwatch", region_name=s3_region)
 
     # Read Construction Data
     construction_data = read_construction_data(
@@ -65,6 +67,89 @@ def main():
     processed_data = process_construction_data(construction_data=construction_data)
 
     output_data(processed_data)
+
+    create_dashboards(
+        cloudwatch_client=cloudwatch_client, processed_data=processed_data
+    )
+
+
+def create_dashboards(cloudwatch_client, processed_data):
+    for tag_name, tag_values in processed_data.items():
+        for tag_value, regions in tag_values.items():
+            for region, account_numbers in regions.items():
+                for account_number, details in account_numbers.items():
+                    dashboard_name = details.get("dashboard_name", "")
+                    graph_contents = details.get("graph_contents", [])
+
+                    # Create Dashboard JSON Structure
+                    dashboard_body = create_dashboard_body(
+                        dashboard_name=dashboard_name,
+                        graph_contents=graph_contents,
+                        account_number=account_number,
+                        region=region,
+                    )
+
+                    logging.info(
+                        f"Creating dashboard {dashboard_name} for account {account_number} in region {region}"
+                    )
+                    logging.info(f"with contents: {json.dumps(graph_contents)}")
+
+                    # Create or Update CloudWatch Dashboard
+                    try:
+                        cloudwatch_client.put_dashboard(
+                            DashboardName=dashboard_name,
+                            DashboardBody=json.dumps(dashboard_body),
+                        )
+                        print(
+                            f"Successfully created/updated dashboard: {dashboard_name}"
+                        )
+                    except ClientError as e:
+                        print(
+                            f"Failed to create/update dashboard: {dashboard_name}. Error: {e}"
+                        )
+
+
+def create_dashboard_body(dashboard_name, graph_contents, account_number, region):
+    widgets = []
+    x, y = 0, 0  # Initial coordinates for the widgets
+
+    for graph_content in graph_contents:
+        graph_content_json = json.loads(
+            graph_content
+        )  # Since graph_content is a JSON string
+        volume_id = graph_content_json["Graph Name"].split("_")[0]
+
+        widget = {
+            "type": "metric",
+            "x": x,
+            "y": y,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    [
+                        "AWS/EBS",
+                        "VolumeReadOps",
+                        "VolumeId",
+                        volume_id,
+                        {"accountId": account_number, "region": region},
+                    ]
+                ],
+                "region": region,  # Added based on your example
+                "period": 300,  # Added based on your example
+                "title": f"{dashboard_name} - {volume_id}",
+            },
+        }
+
+        widgets.append(widget)
+
+        x += 12  # Update x coordinate for next widget
+
+    dashboard_body = {"widgets": widgets}
+
+    return dashboard_body
 
 
 def output_data(processed_data):
@@ -120,7 +205,6 @@ def process_construction_data(construction_data):
         account_number = row.get("Account-Number", "")
 
         dashboard_name = f"{tag_name}_{tag_value}_{region}_{account_number}"
-        # graph_content = f"{tag_name}_{tag_value}_{volume_id}_{region}_{account_number}"
         graph_content = build_graph_content(volume_id, region)
 
         target = structured_data[tag_name][tag_value][region][account_number]
