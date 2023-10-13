@@ -9,6 +9,7 @@ In addition to the Python scripts, there are AWS Systems Manager automations tha
 # Updates
 
 _Aug 28, 2023_ Moved the EBS CloudWatch scripts to the [ebs-cloudwatch](./ebs-cloudwatch/) folder.
+_Sept 12, 2023_ New cross-account, cross-region CloudWatch Dashboards script that aggregates metrics from multiple AWS accounts and regions into a single dashboard for easier monitoring. [CW Dashboard Cross Account, Cross Region README](./ebs-cloudwatch/ebs-cloudwatch-cross-account/)
 
 # Disclaimer
 
@@ -19,6 +20,10 @@ Please note: These scripts are intended for educational purposes and are not rec
 ## EBS CloudWatch Scripts
 
 The [ebs-cloudwatch](./ebs-cloudwatch/) folder contains the stand-alone Python scripts to update CloudWatch Alarms, show if any EBS volumes are in the Impaired status, show latency metrics, create custom CloudWatch metrics for read and write latency, example CloudWatch dashboards, and more.
+
+### EBS CloudWatch Cross-Account, Cross-Region Scripts
+
+The [ebs-cloudwatch/ebs-cloudwatch-cross-account/](./ebs-cloudwatch/ebs-cloudwatch-cross-account/) folder contains Python scripts to aggregate CloudWatch metrics from multiple AWS accounts and regions into a suite of CloudWatch Dashboards using the boto3 library. The scripts query AWS resource metadata across accounts and regions, process the results, and creates/updates a suite of CloudWatch Dashboards that reflect the different Applications (based on Tag Names) across Regions and Accounts.
 
 ## Systems Manager Automation (CloudWatch EBS ImpairedVol Alarms)
 
