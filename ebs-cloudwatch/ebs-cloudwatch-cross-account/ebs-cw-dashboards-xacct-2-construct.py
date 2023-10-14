@@ -7,21 +7,22 @@ import logging
 from botocore.exceptions import ClientError
 from collections import defaultdict
 
-# Constants
-CONFIG = {
-    "EBS_PAGINATION": 300,
-    "CW_WIDTH_X": 8,
-    "CW_HEIGHT_Y": 6,
-    "CW_MAX_WIDTH": 23,
-    "CW_DASHBOARD_METRICS_LIMIT": 2500,
-    "DEFAULT_REGION": "us-west-2",
-    "DEFAULT_S3_REGION": "us-west-2",
-    "DEFAULT_S3_BUCKET_NAME": "jnicmazn-ebs-observability-us-west-2",
-    "DEFAULT_S3_KEY_PREFIX": "",
-    "DEFAULT_CONSTRUCTION_DATA_FILE": "ebs-data.csv",
-    "DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE": "local",
-    "DEFAULT_CROSS_ACCOUNT_ROLE_NAME": "CrossAccountObservabilityRole",
-}
+
+# Use this class to set the Defaults and Constants. The variable format is Config.CONSTANT_NAME
+class Config:
+    EBS_PAGINATION = 300
+    CW_WIDTH_X = 8
+    CW_HEIGHT_Y = 6
+    CW_MAX_WIDTH = 23
+    CW_DASHBOARD_METRICS_LIMIT = 2500
+    CW_DASHBOARD_NAME_PREFIX = "EBS_"
+    DEFAULT_REGION = "us-west-2"
+    DEFAULT_S3_REGION = "us-west-2"
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
+    DEFAULT_S3_KEY_PREFIX = ""
+    DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
+    DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"
+    DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 
 
 def main():
@@ -30,11 +31,13 @@ def main():
 
     validate_file_and_region(args)
 
-    s3_client, cloudwatch_client = init_clients(args.s3_region)
-    construction_data = read_construction_data(args, s3_client)
-    processed_data = process_construction_data(construction_data)
+    s3_client, cloudwatch_client = init_clients(region=args.s3_region)
+    construction_data = read_construction_data(args=args, s3_client=s3_client)
+    processed_data = process_construction_data(construction_data=construction_data)
 
-    create_dashboards(cloudwatch_client, processed_data)
+    create_dashboards(
+        cloudwatch_client=cloudwatch_client, processed_data=processed_data
+    )
 
 
 def init_clients(region):
@@ -122,19 +125,18 @@ def create_dashboards(cloudwatch_client, processed_data):
         for tag_value, regions in tag_values.items():
             for region, account_numbers in regions.items():
                 for account_number, details in account_numbers.items():
-                    dashboard_name = details.get("dashboard_name", "")
+                    dashboard_name = Config.CW_DASHBOARD_NAME_PREFIX + details.get(
+                        "dashboard_name", ""
+                    )
                     graph_contents = details.get("graph_contents", [])
 
                     dashboard_body, metric_count = create_dashboard_body(
                         dashboard_name, graph_contents, account_number, region
                     )
-                    logging.info(
-                        f"Metric count for dashboard {dashboard_name}: {metric_count}"
-                    )
 
-                    if metric_count > CONFIG["CW_DASHBOARD_METRICS_LIMIT"]:
+                    if metric_count > Config.CW_DASHBOARD_METRICS_LIMIT:
                         logging.warning(
-                            f"Dashboard {dashboard_name} has exceeded the metric limit of {CONFIG['CW_DASHBOARD_METRICS_LIMIT']}. "
+                            f"Dashboard {dashboard_name} has exceeded the metric limit of {Config.CW_DASHBOARD_METRICS_LIMIT}. "
                             f"Actual count is {metric_count}."
                         )
                         # You can also take some other action here if needed
@@ -145,11 +147,11 @@ def create_dashboards(cloudwatch_client, processed_data):
                             DashboardBody=json.dumps(dashboard_body),
                         )
                         logging.info(
-                            f"Successfully created/updated dashboard: {dashboard_name}"
+                            f"Successfully created/updated dashboard: {dashboard_name} with {metric_count} metrics."
                         )
                     except ClientError as e:
                         logging.error(
-                            f"Failed to create/update dashboard: {dashboard_name}. Error: {e}"
+                            f"Failed to create/update dashboard: {dashboard_name} with {metric_count} metrics. Error: {e}"
                         )
 
 
@@ -168,10 +170,10 @@ def create_dashboard_body(dashboard_name, graph_contents, account_number, region
 
         metric_count += widget_metric_count  # Update the metric count
 
-        x += CONFIG["CW_WIDTH_X"]  # Update x coordinate for next widget
-        if x > CONFIG["CW_MAX_WIDTH"]:  # Reset to next row
+        x += Config.CW_WIDTH_X  # Update x coordinate for next widget
+        if x > Config.CW_MAX_WIDTH:  # Reset to next row
             x = 0
-            y += CONFIG["CW_HEIGHT_Y"]
+            y += Config.CW_HEIGHT_Y
 
     dashboard_body = {"widgets": widgets}
 
@@ -182,8 +184,8 @@ def create_widget(dashboard_name, graph_content, account_number, region):
     volume_id = graph_content["Graph Name"].split("_")[0]
     widget = {
         "type": "metric",
-        "width": CONFIG["CW_WIDTH_X"],
-        "height": CONFIG["CW_HEIGHT_Y"],
+        "width": Config.CW_WIDTH_X,
+        "height": Config.CW_HEIGHT_Y,
         "properties": {
             "view": "timeSeries",
             "stacked": False,
@@ -313,39 +315,39 @@ def parse_args():
     parser.add_argument(
         "--role-name",
         type=str,
-        default=CONFIG["DEFAULT_CROSS_ACCOUNT_ROLE_NAME"],
-        help=f"Specify the role name. Defaults to {CONFIG['DEFAULT_CROSS_ACCOUNT_ROLE_NAME']}.",
+        default=Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
+        help=f"Specify the role name. Defaults to {Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
     )
     parser.add_argument(
         "--s3-region",
         type=str,
-        default=CONFIG["DEFAULT_S3_REGION"],  # Default region
-        help=f"Specify the S3 region. Defaults to {CONFIG['DEFAULT_S3_REGION']}.",
+        default=Config.DEFAULT_S3_REGION,
+        help=f"Specify the S3 region. Defaults to {Config.DEFAULT_S3_REGION}.",
     )
     parser.add_argument(
         "--bucket-name",
         type=str,
-        default=CONFIG["DEFAULT_S3_BUCKET_NAME"],
-        help=f"Specify the bucket name. Defaults to {CONFIG['DEFAULT_S3_BUCKET_NAME']}.",
+        default=Config.DEFAULT_S3_BUCKET_NAME,
+        help=f"Specify the bucket name. Defaults to {Config.DEFAULT_S3_BUCKET_NAME}.",
     )
     parser.add_argument(
         "--key-prefix",
         type=str,
-        default=CONFIG["DEFAULT_S3_KEY_PREFIX"],
-        help=f"Specify the S3 key prefix. Defaults to '{CONFIG['DEFAULT_S3_KEY_PREFIX'] or 'an empty string'}'.",
+        default=Config.DEFAULT_S3_KEY_PREFIX,
+        help=f"Specify the S3 key prefix. Defaults to {Config.DEFAULT_S3_KEY_PREFIX if Config.DEFAULT_S3_KEY_PREFIX else 'an empty string'}.",
     )
     parser.add_argument(
         "--data-file",
         type=str,
-        default=CONFIG["DEFAULT_CONSTRUCTION_DATA_FILE"],
-        help=f"Specify the output file name. Defaults to {CONFIG['DEFAULT_CONSTRUCTION_DATA_FILE']}.",
+        default=Config.DEFAULT_CONSTRUCTION_DATA_FILE,
+        help=f"Specify the output file name. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE}.",
     )
     parser.add_argument(
         "--data-file-source",
         type=str,
         choices=["s3", "local"],
-        default=CONFIG["DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE"],
-        help=f"Specify the source of the data information file. Choices are: s3, local. Defaults to {CONFIG['DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE']}.",
+        default=Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE,
+        help=f"Specify the source of the data information file. Choices are: s3, local. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
     )
     parser.add_argument(
         "--logging",
