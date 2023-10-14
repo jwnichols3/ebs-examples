@@ -21,7 +21,7 @@
 
 ## Overview and Structure
 
-TODO: Insert Visual
+![CloudWatch Cross Account Workflow Overview](images/ebs-cw-cross-account-overview.jpg)
 
 [Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
 
