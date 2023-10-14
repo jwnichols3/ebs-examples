@@ -12,18 +12,14 @@ from collections import defaultdict
 class Config:
     DEFAULT_CW_NAV_DASHBOARD_NAME = "0_EBS_NAV"
     CW_DASHBOARD_NAME_PREFIX = "EBS_"
-    EBS_PAGINATION = 300
-    CW_WIDTH_X = 8
-    CW_HEIGHT_Y = 6
-    CW_MAX_WIDTH = 23
-    DEFAULT_REGION = "us-west-2"
+    CW_FULL_WIDTH = 24
+    DEFAULT_CW_REGION = "us-west-2"
 
 
 def main():
     args = parse_args()
     init_logging(args.logging)
-    widgets = []
-    region = args.region
+    region = args.cw_region
     cw_nav_dashboard_name = args.cw_nav_dashboard_name
 
     cloudwatch_client = init_clients(region=region)
@@ -36,16 +32,9 @@ def main():
         if dash["DashboardName"].startswith("EBS_")
     ]
 
-    logging.info(f"Found {len(dashboard_names)} dashboards with prefix 'EBS_'.")
-    for i, dashboard_name in enumerate(dashboard_names):
-        logging.info(f"Processing dashboard: {dashboard_name}")
-        x = (i % 2) * 6  # Arrange widgets in columns, 2 widgets per row
-        y = (i // 2) * 6  # New row every 2 widgets
-        widgets.append(
-            generate_text_widget(x=x, y=y, dashboard_name=dashboard_name, region=region)
-        )
-
-    main_dashboard_body = {"widgets": widgets}
+    main_dashboard_body = {
+        "widgets": [generate_single_text_widget(dashboard_names=dashboard_names)]
+    }
 
     try:
         cloudwatch_client.put_dashboard(
@@ -56,21 +45,28 @@ def main():
         logging.error(f"Failed to update dashboard: {e}")
 
 
-def generate_dashboard_url(region, dashboard_name):
-    return f"https://{region}.console.aws.amazon.com/cloudwatch/home?region={region}#dashboards:name={dashboard_name}"
+def generate_single_text_widget(dashboard_names):
+    # Initialize Markdown content with table header
+    markdown_content = "## Dashboards Navigation\n\n| Dashboard Link |\n| ---- |\n"
 
+    # Add table rows for each dashboard
+    for dashboard_name in dashboard_names:
+        dashboard_url = f"#dashboards:name={dashboard_name}"
 
-# Function to generate text widget for each dashboard
-def generate_text_widget(x, y, dashboard_name, region):
-    url = generate_dashboard_url(region=region, dashboard_name=dashboard_name)
-    return {
+        logging.info(f"Markdowndown {dashboard_url}")
+        markdown_content += f"| [Go to {dashboard_name}]({dashboard_url}) |\n"
+
+    dashboard_content = {
         "type": "text",
-        "x": x,
-        "y": y,
-        "width": 6,
-        "height": 6,
-        "properties": {"markdown": f"[Navigate to {dashboard_name}]({url})"},
+        "x": 0,
+        "y": 0,
+        "width": Config.CW_FULL_WIDTH,
+        "properties": {"markdown": markdown_content},
     }
+
+    logging.debug(f"Generated dashboard content: {json.dumps(dashboard_content)}")
+
+    return dashboard_content
 
 
 def get_cloudwatch_dashboards(cloudwatch):
@@ -103,10 +99,10 @@ def parse_args():
         description="Create/Update CloudWatch Navigation Dashboards for Cross-Account Cross-Region EBS Metrics"
     )
     parser.add_argument(
-        "--region",
+        "--cw-region",
         type=str,
-        default=Config.DEFAULT_REGION,
-        help=f"Specify the CloudWatch Dashboard region. Defaults to {Config.DEFAULT_REGION}.",
+        default=Config.DEFAULT_CW_REGION,
+        help=f"Specify the CloudWatch Dashboard region. Defaults to {Config.DEFAULT_CW_REGION}.",
     )
     parser.add_argument(
         "--cw-nav-dashboard-name",
