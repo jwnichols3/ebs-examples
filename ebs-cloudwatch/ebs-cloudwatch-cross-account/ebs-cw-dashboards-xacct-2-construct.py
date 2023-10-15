@@ -42,12 +42,17 @@ def main():
     construction_data = read_construction_data(args=args, s3_client=s3_client)
     processed_data = process_construction_data(construction_data=construction_data)
 
-    create_dashboards(
+    created_dashboards = create_dashboards(
         cloudwatch_client=cloudwatch_client, processed_data=processed_data
     )
 
+    logging.debug(
+        f"Created dashboards going into create_main_nav_dashboard\n{created_dashboards}\n"
+    )
     create_main_nav_dashboard(
-        cloudwatch_client=cloudwatch_client, processed_data=processed_data
+        cloudwatch_client=cloudwatch_client,
+        processed_data=processed_data,
+        dashboard_names=created_dashboards,
     )
 
 
@@ -93,76 +98,83 @@ def process_construction_data(construction_data):
 
 
 def create_dashboards(cloudwatch_client, processed_data):
+    created_dashboards = []
     for tag_name, tag_values in processed_data.items():
         for tag_value, regions in tag_values.items():
             for region, account_numbers in regions.items():
                 for account_number, details in account_numbers.items():
-                    dashboard_name = Config.CW_DASHBOARD_NAME_PREFIX + details.get(
+                    base_dashboard_name = Config.CW_DASHBOARD_NAME_PREFIX + details.get(
                         "dashboard_name", ""
                     )
+
+                    shard_suffix = 1
+                    dashboard_name = f"{base_dashboard_name}_{shard_suffix}"
                     graph_contents = details.get("graph_contents", [])
 
-                    dashboard_body, metric_count = create_dashboard_body(
-                        dashboard_name, graph_contents, account_number, region
-                    )
+                    metric_count = 0  # Initialize metric count for each new dashboard
+                    widgets = [create_top_nav_widget()]
 
-                    if metric_count > Config.CW_DASHBOARD_METRICS_LIMIT:
-                        logging.warning(
-                            f"Dashboard {dashboard_name} has exceeded the metric limit of {Config.CW_DASHBOARD_METRICS_LIMIT}. "
-                            f"Actual count is {metric_count}."
+                    for graph_content in graph_contents:
+                        widget, widget_metric_count = create_widget(
+                            dashboard_name, graph_content, account_number, region
                         )
-                        # You can also take some other action here if needed
+                        metric_count += widget_metric_count  # Update the metric count
 
-                    try:
-                        cloudwatch_client.put_dashboard(
-                            DashboardName=dashboard_name,
-                            DashboardBody=json.dumps(dashboard_body),
+                        # Check if the dashboard has exceeded the metric limit
+                        if metric_count > Config.CW_DASHBOARD_METRICS_LIMIT:
+                            put_dashboard(
+                                cloudwatch_client=cloudwatch_client,
+                                dashboard_name=dashboard_name,
+                                widgets=widgets,
+                            )  # Save the current dashboard
+                            created_dashboards.append(dashboard_name)
+
+                            # Prepare for the next shard
+                            shard_suffix += 1
+                            dashboard_name = f"{base_dashboard_name}_{shard_suffix}"
+                            metric_count = widget_metric_count  # Reset metric count
+                            widgets = [create_top_nav_widget()]
+                            widgets.append(widget)
+
+                        else:
+                            widgets.append(
+                                widget
+                            )  # Add widget to the current dashboard
+
+                    # Create the last dashboard if there are any remaining widgets
+                    if widgets:
+                        put_dashboard(
+                            cloudwatch_client=cloudwatch_client,
+                            dashboard_name=dashboard_name,
+                            widgets=widgets,
                         )
-                        logging.info(
-                            f"Successfully created/updated dashboard: {dashboard_name} with {metric_count} metrics."
-                        )
-                    except ClientError as e:
-                        logging.error(
-                            f"Failed to create/update dashboard: {dashboard_name} with {metric_count} metrics. Error: {e}"
-                        )
+                        created_dashboards.append(dashboard_name)
+
+    return created_dashboards
 
 
-def create_dashboard_body(dashboard_name, graph_contents, account_number, region):
-    widgets = []
-    x, y = 0, 0  # Initial coordinates for the widgets
-    metric_count = 0  # Initialize metric count
-
-    # Add the full-width text widget at the top
-    main_nav_url = f"#dashboards:name={Config.CW_MAINNAV_NAME}"
-    markdown_content = (
-        f"# {dashboard_name}\n\n[Go back to Main Navigation]({main_nav_url})"
-    )
-    text_widget = {
+def create_top_nav_widget():
+    main_nav_link = f"#dashboards:name={Config.CW_MAINNAV_NAME}"
+    return {
         "type": "text",
         "width": Config.CW_WIDGET_MAX_WIDTH,
-        "height": 6,  # Set this according to your requirements
-        "properties": {"markdown": markdown_content},
+        "height": 2,  # You can adjust the height as needed
+        "properties": {"markdown": f"[Go to Main Navigation]({main_nav_link})"},
     }
-    widgets.append(text_widget)
 
-    for graph_content in graph_contents:
-        volume_id = graph_content["Graph Name"].split("_")[0]
 
-        widget, widget_metric_count = create_widget(
-            dashboard_name, graph_content, account_number, region
-        )
-        widgets.append(widget)
-
-        metric_count += widget_metric_count  # Update the metric count
-
-        x += Config.CW_WIDGET_X  # Update x coordinate for next widget
-        if x > Config.CW_WIDGET_MAX_WIDTH:  # Reset to next row
-            x = 0
-            y += Config.CW_WIDGET_Y
-
+def put_dashboard(cloudwatch_client, dashboard_name, widgets):
     dashboard_body = {"widgets": widgets}
-
-    return dashboard_body, metric_count  # Return dashboard body and metric count
+    try:
+        cloudwatch_client.put_dashboard(
+            DashboardName=dashboard_name,
+            DashboardBody=json.dumps(dashboard_body),
+        )
+        logging.info(f"Successfully created/updated dashboard: {dashboard_name}.")
+    except ClientError as e:
+        logging.error(
+            f"Failed to create/update dashboard: {dashboard_name}. Error: {e}"
+        )
 
 
 def create_widget(dashboard_name, graph_content, account_number, region):
@@ -293,20 +305,8 @@ def create_widget(dashboard_name, graph_content, account_number, region):
     return widget, widget_metric_count  # Return the widget and its metric count
 
 
-def create_main_nav_dashboard(cloudwatch_client, processed_data):
-    dashboard_names = []
-
-    for tag_name, tag_values in processed_data.items():
-        for tag_value, regions in tag_values.items():
-            for region, account_numbers in regions.items():
-                for account_number, details in account_numbers.items():
-                    dashboard_name = details.get("dashboard_name", "")
-                    if dashboard_name:
-                        dashboard_names.append(
-                            Config.CW_DASHBOARD_NAME_PREFIX + dashboard_name
-                        )
-
-    # Count the number of dashboards and add 10 to set the height
+def create_main_nav_dashboard(cloudwatch_client, processed_data, dashboard_names):
+    # Count the number of dashboards and add a buffer to set the height
     dashboard_count = len(dashboard_names)
     dynamic_height = dashboard_count + Config.CW_MAINNAV_WIDGET_HEIGHT_BUFFER
 
