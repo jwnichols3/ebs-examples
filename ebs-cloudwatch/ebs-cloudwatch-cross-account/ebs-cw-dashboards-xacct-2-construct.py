@@ -21,8 +21,8 @@ class Config:
     CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"
     CW_MAINNAV_WIDGET_HEIGHT_BUFFER = 4
     DEFAULT_CW_REGION = "us-west-2"
-    DEFAULT_S3_REGION = "us-east-1"
-    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-east-1"
+    DEFAULT_S3_REGION = "us-west-2"
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
     DEFAULT_S3_KEY_PREFIX = ""
     DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
     DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"
@@ -131,6 +131,19 @@ def create_dashboard_body(dashboard_name, graph_contents, account_number, region
     widgets = []
     x, y = 0, 0  # Initial coordinates for the widgets
     metric_count = 0  # Initialize metric count
+
+    # Add the full-width text widget at the top
+    main_nav_url = f"#dashboards:name={Config.CW_MAINNAV_NAME}"
+    markdown_content = (
+        f"# {dashboard_name}\n\n[Go back to Main Navigation]({main_nav_url})"
+    )
+    text_widget = {
+        "type": "text",
+        "width": Config.CW_WIDGET_MAX_WIDTH,
+        "height": 6,  # Set this according to your requirements
+        "properties": {"markdown": markdown_content},
+    }
+    widgets.append(text_widget)
 
     for graph_content in graph_contents:
         volume_id = graph_content["Graph Name"].split("_")[0]
