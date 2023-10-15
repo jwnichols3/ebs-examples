@@ -14,6 +14,15 @@ import logging
 KEY_PATH = "~/.ssh"  # Path to SSH private key. The assumption is the file name and the AWS EC2 Key are the same. This is used to show a ssh command to access the Linux instance.
 
 
+class Config:
+    KEY_PATH = "~/.ssh"
+    DEFAULT_SC1_VOL_SIZE = 125
+    DEFAULT_ST1_VOL_SIZE = 125
+    DEFAULT_GP2_VOL_SIZE = 5
+    DEFAULT_GP3_VOL_SIZE = 5
+    DEFAULT_IO2_VOL_SIZE = 5
+
+
 def main():
     args = parse_args()
     init_logging(args)
@@ -57,12 +66,6 @@ def main():
 
         return
 
-    #    if args.launchrun_list:
-    #        list_unique_launch_runs(
-    #            ec2_client=ec2_client, ec2_resource=ec2_resource, region=args.region
-    #        )
-    #        return
-
     if args.region is None:
         region_list = get_region_list()
         if region_list is None:
@@ -102,7 +105,7 @@ def main():
 def get_user_data_script():
     user_data_script = """#!/bin/bash
 yum -y install fio
-for device_path in /dev/nvme1n*; do
+for device_path in /dev/nvme*n*; do
   # Random read/write I/O
   fio --name=random-rw --ioengine=posixaio --rw=randrw --rwmixread=70 --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
   # Sequential read/write I/O
@@ -414,8 +417,8 @@ def handle_user_inputs(
         else:
             print("No existing key pairs found.")
             create_or_proceed = prompt_for_choice(
-                ["Create new key pair", "Proceed without key pair"],
-                "Would you like to create a new key pair or proceed without a key pair? (by number): ",
+                ["Proceed without key pair"],
+                "Would you like to proceed without a key pair? (by number): ",
             )
             if create_or_proceed == "Create new key pair":
                 # Add logic to create a new key pair
@@ -423,10 +426,6 @@ def handle_user_inputs(
             elif create_or_proceed == "Proceed without key pair":
                 key_name = None
 
-    #    if key_name is None:
-    #        key_name = prompt_for_choice(
-    #            get_key_pairs(ec2_client), "Please select a key pair (by number): "
-    #        )
     if vpc is None:
         selected_option = prompt_for_choice(
             get_vpcs_with_names(ec2_client), "Please select a VPC (by number): "
@@ -468,14 +467,28 @@ def prepare_launch_params(
 ):
     ami_id = get_latest_amazon_linux_ami(ec2_client)
     block_device_mappings = []
+    volume_size_map = {
+        "sc1": Config.DEFAULT_SC1_VOL_SIZE,
+        "st1": Config.DEFAULT_ST1_VOL_SIZE,
+        "gp2": Config.DEFAULT_GP2_VOL_SIZE,
+        "gp3": Config.DEFAULT_GP3_VOL_SIZE,
+        "io2": Config.DEFAULT_IO2_VOL_SIZE,
+    }
+
     for i in range(volume_count):
+        volume_size = volume_size_map.get(vol_type, 5)
+        ebs_config = {
+            "VolumeType": vol_type,
+            "VolumeSize": volume_size,
+        }
+        # Add Iops only if volume type is io2
+        if vol_type == "io2":
+            ebs_config["Iops"] = 125
+
         block_device_mappings.append(
             {
                 "DeviceName": f'/dev/sd{"b" if i == 0 else chr(ord("b") + i)}',
-                "Ebs": {
-                    "VolumeType": vol_type,
-                    "VolumeSize": 125,
-                },
+                "Ebs": ebs_config,
             }
         )
     user_data_script = get_user_data_script()
@@ -494,8 +507,10 @@ def prepare_launch_params(
         "SubnetId": subnet_id,
         "SecurityGroupIds": [security_group],
     }
-    if key_name:
+    if key_name is not None and key_name.lower() != "nokey":
         launch_params["KeyName"] = key_name
+    #    if key_name:
+    #        launch_params["KeyName"] = key_name
 
     return launch_params
 
@@ -507,7 +522,18 @@ def monitor_instance_status(
     while not all_running:
         summary_table = []
         for instance_id in instance_ids:
-            response = ec2_client.describe_instances(InstanceIds=[instance_id])
+            for _ in range(2):  # Two attempts
+                try:
+                    response = ec2_client.describe_instances(InstanceIds=[instance_id])
+                    break  # Exit the loop if successful
+                except Exception as e:
+                    if _ == 0:  # First attempt
+                        time.sleep(10)
+                    else:  # Second attempt
+                        print(f"Failed to describe instance {instance_id}. Exiting.")
+                        print(f"Error: {e}")
+                        exit(1)
+
             instance = response["Reservations"][0]["Instances"][0]
             status = instance["State"]["Name"]
             public_ip = instance.get("PublicIpAddress", "")
@@ -649,8 +675,12 @@ def launch_instances(
     if logging.info:
         python_executable = sys.executable
         script_name = os.path.basename(__file__)
-        key_option = f"--key {key_name}" if key_name else ""
-        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option}"
+        key_option = (
+            f"--key {key_name}"
+            if key_name is not None and key_name.lower() != "nokey"
+            else "--key 'nokey'"
+        )
+        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --vol-type {vol_type} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option} --cluster-name {clustername}"
         logging.info(f"\n\nComparable CLI Command: {comparable_cli_command}")
 
         logging.info("\n\nTo terminate these instances, run the following command:")
