@@ -681,11 +681,11 @@ def launch_instances(
             else "--key 'nokey'"
         )
         comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --vol-type {vol_type} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option} --cluster-name {clustername}"
-        logging.info(f"\n\nComparable CLI Command: {comparable_cli_command}")
+        logging.info(f"\nThe LaunchRun for this group is {launch_run_id}\n")
+        logging.info(f"\nComparable CLI Command:\n{comparable_cli_command}")
 
-        logging.info("\n\nTo terminate these instances, run the following command:")
         logging.info(
-            f"{python_executable} {script_name} --terminate {launch_run_id} --region {region}"
+            f"\n\nTo terminate these instances, run the following command:\n{python_executable} {script_name} --terminate {launch_run_id} --region {region}"
         )
 
 
