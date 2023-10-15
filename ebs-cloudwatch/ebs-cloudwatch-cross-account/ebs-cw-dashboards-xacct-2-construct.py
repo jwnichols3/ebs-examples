@@ -364,8 +364,19 @@ def init_logging(level):
 
 
 def read_csv_from_s3(s3_client, bucket, key):
-    response = s3_client.get_object(Bucket=bucket, Key=key)
-    return csv.DictReader(response["Body"].read().decode("utf-8").splitlines())
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        return csv.DictReader(response["Body"].read().decode("utf-8").splitlines())
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "NoSuchKey":
+            logging.error(f"Error: Object '{key}' not found in bucket '{bucket}'.")
+        elif e.response["Error"]["Code"] == "AccessDenied":
+            logging.error(
+                f"Error: Access denied to object '{key}' in bucket '{bucket}'."
+            )
+        else:
+            logging.error(f"An unexpected error occurred: {e}")
+        exit(1)
 
 
 def read_csv_from_local(file_path):
