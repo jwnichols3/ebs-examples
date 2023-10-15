@@ -16,7 +16,10 @@ class Config:
     CW_MAX_WIDTH = 23
     CW_DASHBOARD_METRICS_LIMIT = 2500
     CW_DASHBOARD_NAME_PREFIX = "EBS_"
-    DEFAULT_REGION = "us-west-2"
+    DEFAULT_CW_NAV_DASHBOARD_NAME = "0_EBS_NAV"
+    CW_DASHBOARD_NAME_PREFIX = "EBS_"
+    CW_FULL_WIDTH = 24
+    DEFAULT_CW_REGION = "us-west-2"
     DEFAULT_S3_REGION = "us-west-2"
     DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
     DEFAULT_S3_KEY_PREFIX = ""
@@ -29,9 +32,12 @@ def main():
     args = parse_args()
     init_logging(args.logging)
 
-    validate_file_and_region(args)
+    validate_file_exists(args=args)
+    validate_region(args=args)
 
-    s3_client, cloudwatch_client = init_clients(region=args.s3_region)
+    s3_client, cloudwatch_client = init_clients(
+        s3_region=args.s3_region, cw_region=args.cw_region
+    )
     construction_data = read_construction_data(args=args, s3_client=s3_client)
     processed_data = process_construction_data(construction_data=construction_data)
 
@@ -39,44 +45,9 @@ def main():
         cloudwatch_client=cloudwatch_client, processed_data=processed_data
     )
 
-
-def init_clients(region):
-    return boto3.client("s3", region_name=region), boto3.client(
-        "cloudwatch", region_name=region
+    create_main_nav_dashboard(
+        cloudwatch_client=cloudwatch_client, processed_data=processed_data
     )
-
-
-def init_logging(level):
-    logging.basicConfig(
-        level=level.upper(),
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-
-def read_csv_from_s3(s3_client, bucket, key):
-    response = s3_client.get_object(Bucket=bucket, Key=key)
-    return csv.DictReader(response["Body"].read().decode("utf-8").splitlines())
-
-
-def read_csv_from_local(file_path):
-    with open(file_path, "r") as f:
-        return list(csv.DictReader(f))
-
-
-def validate_file_and_region(args):
-    data_file_source = args.data_file_source
-    data_file = args.data_file
-    s3_region = args.s3_region
-    available_regions = boto3.session.Session().get_available_regions("s3")
-
-    if data_file_source == "local" and not os.path.exists(data_file):
-        logging.error(f"Error: Account file '{data_file}' not found.")
-        exit(1)
-
-    if s3_region not in available_regions:
-        logging.error(f"Error: The specified S3 region {s3_region} is not valid.")
-        exit(1)
 
 
 def read_construction_data(args, s3_client):
@@ -308,6 +279,97 @@ def create_widget(dashboard_name, graph_content, account_number, region):
     return widget, widget_metric_count  # Return the widget and its metric count
 
 
+def create_main_nav_dashboard(cloudwatch_client, processed_data):
+    dashboard_names = []
+
+    for tag_name, tag_values in processed_data.items():
+        for tag_value, regions in tag_values.items():
+            for region, account_numbers in regions.items():
+                for account_number, details in account_numbers.items():
+                    dashboard_name = details.get("dashboard_name", "")
+                    if dashboard_name:
+                        dashboard_names.append(
+                            Config.CW_DASHBOARD_NAME_PREFIX + dashboard_name
+                        )
+
+    main_dashboard_body = {
+        "widgets": [generate_main_nav_widget(dashboard_names=dashboard_names)]
+    }
+
+    try:
+        cloudwatch_client.put_dashboard(
+            DashboardName=Config.DEFAULT_CW_NAV_DASHBOARD_NAME,
+            DashboardBody=json.dumps(main_dashboard_body),
+        )
+        logging.info(f"Successfully created/updated navigation dashboard.")
+    except ClientError as e:
+        logging.error(f"Failed to create/update navigation dashboard. Error: {e}")
+
+
+def generate_main_nav_widget(dashboard_names):
+    # Initialize Markdown content with table header
+    markdown_content = "## Dashboards Navigation\n\n| Dashboard Link |\n| ---- |\n"
+
+    # Add table rows for each dashboard
+    for dashboard_name in dashboard_names:
+        dashboard_url = f"#dashboards:name={dashboard_name}"
+
+        logging.info(f"Markdowndown {dashboard_url}")
+        markdown_content += f"| [Go to {dashboard_name}]({dashboard_url}) |\n"
+
+    dashboard_content = {
+        "type": "text",
+        "width": Config.CW_FULL_WIDTH,
+        "properties": {"markdown": markdown_content},
+    }
+
+    logging.debug(f"Generated dashboard content: {json.dumps(dashboard_content)}")
+
+    return dashboard_content
+
+
+def init_clients(s3_region, cw_region):
+    s3_client = boto3.client("s3", region_name=s3_region)
+    cloudwatch_client = boto3.client("cloudwatch", region_name=cw_region)
+    return s3_client, cloudwatch_client
+
+
+def init_logging(level):
+    logging.basicConfig(
+        level=level.upper(),
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
+def read_csv_from_s3(s3_client, bucket, key):
+    response = s3_client.get_object(Bucket=bucket, Key=key)
+    return csv.DictReader(response["Body"].read().decode("utf-8").splitlines())
+
+
+def read_csv_from_local(file_path):
+    with open(file_path, "r") as f:
+        return list(csv.DictReader(f))
+
+
+def validate_region(args):
+    s3_region = args.s3_region
+    available_regions = boto3.session.Session().get_available_regions("s3")
+
+    if s3_region not in available_regions:
+        logging.error(f"Error: The specified S3 region {s3_region} is not valid.")
+        exit(1)
+
+
+def validate_file_exists(args):
+    data_file_source = args.data_file_source
+    data_file = args.data_file
+
+    if data_file_source == "local" and not os.path.exists(data_file):
+        logging.error(f"Error: Account file '{data_file}' not found.")
+        exit(1)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="CloudWatch Dashboards Cross-Account Data Gathering"
@@ -317,6 +379,12 @@ def parse_args():
         type=str,
         default=Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
         help=f"Specify the role name. Defaults to {Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
+    )
+    parser.add_argument(
+        "--cw-region",
+        type=str,
+        default=Config.DEFAULT_CW_REGION,
+        help=f"Specify the CloudWatch Dashboard region. Defaults to {Config.DEFAULT_CW_REGION}.",
     )
     parser.add_argument(
         "--s3-region",
@@ -348,6 +416,12 @@ def parse_args():
         choices=["s3", "local"],
         default=Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE,
         help=f"Specify the source of the data information file. Choices are: s3, local. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
+    )
+    parser.add_argument(
+        "--cw-nav-dashboard-name",
+        type=str,
+        default=Config.DEFAULT_CW_NAV_DASHBOARD_NAME,
+        help=f"Specify the name of the CloudWatch Navigation Dashboard. Defaults to {Config.DEFAULT_CW_NAV_DASHBOARD_NAME}.",
     )
     parser.add_argument(
         "--logging",
