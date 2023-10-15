@@ -21,8 +21,8 @@ class Config:
     CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"
     CW_MAINNAV_WIDGET_HEIGHT_BUFFER = 4
     DEFAULT_CW_REGION = "us-west-2"
-    DEFAULT_S3_REGION = "us-west-2"
-    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
+    DEFAULT_S3_REGION = "us-east-1"
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-east-1"
     DEFAULT_S3_KEY_PREFIX = ""
     DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
     DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"

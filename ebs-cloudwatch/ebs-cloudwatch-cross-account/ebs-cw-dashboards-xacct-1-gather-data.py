@@ -6,16 +6,17 @@ import argparse
 import os
 import logging
 
-# CONSTANTS
-EBS_PAGINATION = 300
-DEFAULT_REGION = "us-west-2"
-DEFAULT_S3_REGION = "us-west-2"
-DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
-DEFAULT_S3_KEY_PREFIX = ""
-DEFAULT_DATA_FILE = "ebs-data.csv"
-DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
-DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # can be "local" or "s3"
-DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
+
+class Config:
+    EBS_PAGINATION = 300
+    DEFAULT_S3_REGION = "us-west-2"
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
+    DEFAULT_S3_KEY_PREFIX = ""
+    DEFAULT_DATA_FILE = "ebs-data.csv"
+    DEFAULT_DATA_FILE_SOURCE = "local"  # can be "local" or "s3"
+    DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
+    DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # can be "local" or "s3"
+    DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 
 
 def main():
@@ -40,7 +41,7 @@ def main():
             if key_prefix
             else f"s3://{bucket_name}/{account_file}"
         )
-        print(f"Using account file from S3: {s3_path}")
+        logging.info(f"Using account file from S3: {s3_path}")
 
     available_regions = boto3.session.Session().get_available_regions("s3")
     if args.s3_region not in available_regions:
@@ -195,13 +196,13 @@ def list_ebs_volumes(credentials, region, tag_name):
     while True:
         if next_token:
             response = ec2_client.describe_volumes(
-                MaxResults=EBS_PAGINATION,
+                MaxResults=Config.EBS_PAGINATION,
                 NextToken=next_token,
                 Filters=[{"Name": f"tag:{tag_name}", "Values": ["*"]}],
             )
         else:
             response = ec2_client.describe_volumes(
-                MaxResults=EBS_PAGINATION,
+                MaxResults=Config.EBS_PAGINATION,
                 Filters=[{"Name": f"tag:{tag_name}", "Values": ["*"]}],
             )
 
@@ -253,45 +254,52 @@ def parse_args():
     parser.add_argument(
         "--account-file",
         type=str,
-        default=DEFAULT_ACCOUNT_INFO_FILE,
-        help=f"Specify the account information file. Defaults to {DEFAULT_ACCOUNT_INFO_FILE}.",
-    )
-    parser.add_argument(
-        "--role-name",
-        type=str,
-        default=DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
-        help=f"Specify the role name. Defaults to {DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
-    )
-    parser.add_argument(
-        "--s3-region",
-        type=str,
-        default=DEFAULT_S3_REGION,  # Default region
-        help=f"Specify the S3 region. Defaults to {DEFAULT_S3_REGION}.",
-    )
-    parser.add_argument(
-        "--bucket-name",
-        type=str,
-        default=DEFAULT_S3_BUCKET_NAME,
-        help=f"Specify the bucket name. Defaults to {DEFAULT_S3_BUCKET_NAME}.",
-    )
-    parser.add_argument(
-        "--key-prefix",
-        type=str,
-        default=DEFAULT_S3_KEY_PREFIX,
-        help=f"Specify the S3 key prefix. Defaults to '{DEFAULT_S3_KEY_PREFIX or 'an empty string'}'.",
-    )
-    parser.add_argument(
-        "--data-file",
-        type=str,
-        default=DEFAULT_DATA_FILE,
-        help=f"Specify the output file name. Defaults to {DEFAULT_DATA_FILE}.",
+        default=Config.DEFAULT_ACCOUNT_INFO_FILE,
+        help=f"Specify the account information file. Defaults to {Config.DEFAULT_ACCOUNT_INFO_FILE}.",
     )
     parser.add_argument(
         "--account-file-source",
         type=str,
         choices=["s3", "local"],
-        default=DEFAULT_ACCOUNT_FILE_SOURCE,
-        help="Specify the source of the account information file. Choices are: s3, local. Defaults to {DEFAULT_ACCOUNT_FILE_SOURCE}.",
+        default=Config.DEFAULT_ACCOUNT_FILE_SOURCE,
+        help="Specify the source of the account information file. Choices are: s3, local. Defaults to {Config.DEFAULT_ACCOUNT_FILE_SOURCE}.",
+    )
+    parser.add_argument(
+        "--role-name",
+        type=str,
+        default=Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
+        help=f"Specify the role name. Defaults to {Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
+    )
+    parser.add_argument(
+        "--s3-region",
+        type=str,
+        default=Config.DEFAULT_S3_REGION,  # Default region
+        help=f"Specify the S3 region. Defaults to {Config.DEFAULT_S3_REGION}.",
+    )
+    parser.add_argument(
+        "--bucket-name",
+        type=str,
+        default=Config.DEFAULT_S3_BUCKET_NAME,
+        help=f"Specify the bucket name. Defaults to {Config.DEFAULT_S3_BUCKET_NAME}.",
+    )
+    parser.add_argument(
+        "--key-prefix",
+        type=str,
+        default=Config.DEFAULT_S3_KEY_PREFIX,
+        help=f"Specify the S3 key prefix. Defaults to '{Config.DEFAULT_S3_KEY_PREFIX or 'an empty string'}'.",
+    )
+    parser.add_argument(
+        "--data-file",
+        type=str,
+        default=Config.DEFAULT_DATA_FILE,
+        help=f"Specify the output file name. Defaults to {Config.DEFAULT_DATA_FILE}.",
+    )
+    parser.add_argument(
+        "--data-file-source",
+        type=str,
+        choices=["s3", "local"],
+        default=Config.DEFAULT_DATA_FILE_SOURCE,
+        help="Specify where to put the data file. Choices are: s3, local. Defaults to {Config.DEFAULT_DATA_FILE_SOURCE}.",
     )
     parser.add_argument(
         "--logging",
