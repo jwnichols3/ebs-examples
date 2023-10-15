@@ -58,8 +58,6 @@ def generate_single_text_widget(dashboard_names):
 
     dashboard_content = {
         "type": "text",
-        "x": 0,
-        "y": 0,
         "width": Config.CW_FULL_WIDTH,
         "properties": {"markdown": markdown_content},
     }
