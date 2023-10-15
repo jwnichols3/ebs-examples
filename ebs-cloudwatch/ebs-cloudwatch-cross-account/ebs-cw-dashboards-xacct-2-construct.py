@@ -11,14 +11,15 @@ from collections import defaultdict
 # Use this class to set the Defaults and Constants. The variable format is Config.CONSTANT_NAME
 class Config:
     EBS_PAGINATION = 300
-    CW_WIDTH_X = 8
-    CW_HEIGHT_Y = 6
-    CW_MAX_WIDTH = 23
+    CW_WIDGET_X = 8  # The width of the widgets on the constructed pages.
+    CW_WIDGET_Y = 6  # The height of the widgets on constructed pages.
+    CW_WIDGET_MAX_WIDTH = 23  # Width boundaries or used for full-width widgets
+    CW_WIDGET_MAX_HEIGHT = 999  # A widget's maximum height.
+    CW_WIDGET_METRICS_LIMIT = 500
     CW_DASHBOARD_METRICS_LIMIT = 2500
     CW_DASHBOARD_NAME_PREFIX = "EBS_"
-    DEFAULT_CW_NAV_DASHBOARD_NAME = "0_EBS_NAV"
-    CW_DASHBOARD_NAME_PREFIX = "EBS_"
-    CW_FULL_WIDTH = 24
+    CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"
+    CW_MAINNAV_WIDGET_HEIGHT_BUFFER = 4
     DEFAULT_CW_REGION = "us-west-2"
     DEFAULT_S3_REGION = "us-west-2"
     DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
@@ -141,10 +142,10 @@ def create_dashboard_body(dashboard_name, graph_contents, account_number, region
 
         metric_count += widget_metric_count  # Update the metric count
 
-        x += Config.CW_WIDTH_X  # Update x coordinate for next widget
-        if x > Config.CW_MAX_WIDTH:  # Reset to next row
+        x += Config.CW_WIDGET_X  # Update x coordinate for next widget
+        if x > Config.CW_WIDGET_MAX_WIDTH:  # Reset to next row
             x = 0
-            y += Config.CW_HEIGHT_Y
+            y += Config.CW_WIDGET_Y
 
     dashboard_body = {"widgets": widgets}
 
@@ -155,8 +156,8 @@ def create_widget(dashboard_name, graph_content, account_number, region):
     volume_id = graph_content["Graph Name"].split("_")[0]
     widget = {
         "type": "metric",
-        "width": Config.CW_WIDTH_X,
-        "height": Config.CW_HEIGHT_Y,
+        "width": Config.CW_WIDGET_X,
+        "height": Config.CW_WIDGET_Y,
         "properties": {
             "view": "timeSeries",
             "stacked": False,
@@ -292,13 +293,21 @@ def create_main_nav_dashboard(cloudwatch_client, processed_data):
                             Config.CW_DASHBOARD_NAME_PREFIX + dashboard_name
                         )
 
+    # Count the number of dashboards and add 10 to set the height
+    dashboard_count = len(dashboard_names)
+    dynamic_height = dashboard_count + Config.CW_MAINNAV_WIDGET_HEIGHT_BUFFER
+
     main_dashboard_body = {
-        "widgets": [generate_main_nav_widget(dashboard_names=dashboard_names)]
+        "widgets": [
+            generate_main_nav_widget(
+                dashboard_names=dashboard_names, dynamic_height=dynamic_height
+            )
+        ]
     }
 
     try:
         cloudwatch_client.put_dashboard(
-            DashboardName=Config.DEFAULT_CW_NAV_DASHBOARD_NAME,
+            DashboardName=Config.CW_MAINNAV_NAME,
             DashboardBody=json.dumps(main_dashboard_body),
         )
         logging.info(f"Successfully created/updated navigation dashboard.")
@@ -306,20 +315,19 @@ def create_main_nav_dashboard(cloudwatch_client, processed_data):
         logging.error(f"Failed to create/update navigation dashboard. Error: {e}")
 
 
-def generate_main_nav_widget(dashboard_names):
+def generate_main_nav_widget(dashboard_names, dynamic_height):
     # Initialize Markdown content with table header
     markdown_content = "## Dashboards Navigation\n\n| Dashboard Link |\n| ---- |\n"
 
     # Add table rows for each dashboard
     for dashboard_name in dashboard_names:
         dashboard_url = f"#dashboards:name={dashboard_name}"
-
-        logging.info(f"Markdowndown {dashboard_url}")
         markdown_content += f"| [Go to {dashboard_name}]({dashboard_url}) |\n"
 
     dashboard_content = {
         "type": "text",
-        "width": Config.CW_FULL_WIDTH,
+        "width": Config.CW_WIDGET_MAX_WIDTH,
+        "height": dynamic_height,  # Set height dynamically
         "properties": {"markdown": markdown_content},
     }
 
@@ -416,12 +424,6 @@ def parse_args():
         choices=["s3", "local"],
         default=Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE,
         help=f"Specify the source of the data information file. Choices are: s3, local. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
-    )
-    parser.add_argument(
-        "--cw-nav-dashboard-name",
-        type=str,
-        default=Config.DEFAULT_CW_NAV_DASHBOARD_NAME,
-        help=f"Specify the name of the CloudWatch Navigation Dashboard. Defaults to {Config.DEFAULT_CW_NAV_DASHBOARD_NAME}.",
     )
     parser.add_argument(
         "--logging",
