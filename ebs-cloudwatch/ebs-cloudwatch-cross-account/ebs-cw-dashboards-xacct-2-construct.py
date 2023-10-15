@@ -17,6 +17,7 @@ class Config:
     CW_WIDGET_MAX_HEIGHT = 999  # A widget's maximum height.
     CW_WIDGET_METRICS_LIMIT = 500
     CW_DASHBOARD_METRICS_LIMIT = 2500
+    CW_DASHBOARD_PERIOD = 60  # Number of seconds for each CW Metric
     CW_DASHBOARD_NAME_PREFIX = "EBS_"
     CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"
     CW_MAINNAV_WIDGET_HEIGHT_BUFFER = 4
@@ -159,7 +160,9 @@ def create_top_nav_widget():
         "type": "text",
         "width": Config.CW_WIDGET_MAX_WIDTH,
         "height": 2,  # You can adjust the height as needed
-        "properties": {"markdown": f"[Go to Main Navigation]({main_nav_link})"},
+        "properties": {
+            "markdown": f"## [button:primary:GO TO MAIN NAV]({main_nav_link})"
+        },
     }
 
 
@@ -296,7 +299,7 @@ def create_widget(dashboard_name, graph_content, account_number, region):
                 ],
             ],
             "region": region,  # Added based on your example
-            "period": 300,  # Added based on your example
+            "period": Config.CW_DASHBOARD_PERIOD,  # Added based on your example
             "title": f"{dashboard_name} - {volume_id}",
         },
     }
