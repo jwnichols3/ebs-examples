@@ -649,7 +649,8 @@ def launch_instances(
     if logging.info:
         python_executable = sys.executable
         script_name = os.path.basename(__file__)
-        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --vpc {vpc} --az {az} --key {key_name} --sg {security_group}"
+        key_option = f"--key {key_name}" if key_name else ""
+        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option}"
         logging.info(f"\n\nComparable CLI Command: {comparable_cli_command}")
 
         logging.info("\n\nTo terminate these instances, run the following command:")
@@ -758,7 +759,7 @@ class EC2Manager:
                     "DeviceName": f'/dev/sd{"b" if i == 0 else chr(ord("b") + i)}',
                     "Ebs": {
                         "VolumeType": "gp3",
-                        "VolumeSize": 10,
+                        "VolumeSize": 2,
                     },
                 }
             )
