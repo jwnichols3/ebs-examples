@@ -17,12 +17,14 @@ class Config:
     CW_WIDGET_MAX_HEIGHT = 999  # A widget's maximum height.
     CW_WIDGET_METRICS_LIMIT = 500
     CW_DASHBOARD_METRICS_LIMIT = 2500
-    CW_DASHBOARD_PERIOD = 60  # Number of seconds for each CW Metric
-    CW_DASHBOARD_NAME_PREFIX = "EBS_"
-    CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"
-    CW_MAINNAV_WIDGET_HEIGHT_BUFFER = 4
-    DEFAULT_CW_REGION = "us-west-2"
-    DEFAULT_S3_REGION = "us-west-2"
+    CW_DASHBOARD_PERIOD = 60  # Number of seconds on the CW Graph for each CW Metric
+    CW_DASHBOARD_NAME_PREFIX = "EBS_"  # This prefix is how the CloudWatch dashboards are identified as part of this grouping.
+    CW_MAINNAV_NAME = "0_" + CW_DASHBOARD_NAME_PREFIX + "_NAV"  # The Main Nav dashboard
+    CW_MAINNAV_WIDGET_HEIGHT_BUFFER = (
+        4  # The height buffer for widgets on the main nav dashboard
+    )
+    DEFAULT_CW_REGION = "us-west-2"  # Where the CloudWatch dashboards will be created
+    DEFAULT_S3_REGION = "us-west-2"  # where the S3 data file is stored
     DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
     DEFAULT_S3_KEY_PREFIX = ""
     DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
@@ -152,18 +154,6 @@ def create_dashboards(cloudwatch_client, processed_data):
                         created_dashboards.append(dashboard_name)
 
     return created_dashboards
-
-
-def create_top_nav_widget():
-    main_nav_link = f"#dashboards:name={Config.CW_MAINNAV_NAME}"
-    return {
-        "type": "text",
-        "width": Config.CW_WIDGET_MAX_WIDTH,
-        "height": 2,  # You can adjust the height as needed
-        "properties": {
-            "markdown": f"## [button:primary:GO TO MAIN NAV]({main_nav_link})"
-        },
-    }
 
 
 def put_dashboard(cloudwatch_client, dashboard_name, widgets):
@@ -352,18 +342,16 @@ def generate_main_nav_widget(dashboard_names, dynamic_height):
     return dashboard_content
 
 
-def init_clients(s3_region, cw_region):
-    s3_client = boto3.client("s3", region_name=s3_region)
-    cloudwatch_client = boto3.client("cloudwatch", region_name=cw_region)
-    return s3_client, cloudwatch_client
-
-
-def init_logging(level):
-    logging.basicConfig(
-        level=level.upper(),
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+def create_top_nav_widget():
+    main_nav_link = f"#dashboards:name={Config.CW_MAINNAV_NAME}"
+    return {
+        "type": "text",
+        "width": Config.CW_WIDGET_MAX_WIDTH,
+        "height": 2,  # You can adjust the height as needed
+        "properties": {
+            "markdown": f"## [button:primary:GO TO MAIN NAV]({main_nav_link})"
+        },
+    }
 
 
 def read_csv_from_s3(s3_client, bucket, key):
@@ -405,15 +393,23 @@ def validate_file_exists(args):
         exit(1)
 
 
+def init_clients(s3_region, cw_region):
+    s3_client = boto3.client("s3", region_name=s3_region)
+    cloudwatch_client = boto3.client("cloudwatch", region_name=cw_region)
+    return s3_client, cloudwatch_client
+
+
+def init_logging(level):
+    logging.basicConfig(
+        level=level.upper(),
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="CloudWatch Dashboards Cross-Account Data Gathering"
-    )
-    parser.add_argument(
-        "--role-name",
-        type=str,
-        default=Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
-        help=f"Specify the role name. Defaults to {Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
+        description="CloudWatch Dashboards Cross-Account Construction"
     )
     parser.add_argument(
         "--cw-region",
@@ -425,32 +421,32 @@ def parse_args():
         "--s3-region",
         type=str,
         default=Config.DEFAULT_S3_REGION,
-        help=f"Specify the S3 region. Defaults to {Config.DEFAULT_S3_REGION}.",
+        help=f"Specify the S3 region for data file. Defaults to {Config.DEFAULT_S3_REGION}.",
     )
     parser.add_argument(
         "--bucket-name",
         type=str,
         default=Config.DEFAULT_S3_BUCKET_NAME,
-        help=f"Specify the bucket name. Defaults to {Config.DEFAULT_S3_BUCKET_NAME}.",
+        help=f"Specify the bucket name for the data file. Defaults to {Config.DEFAULT_S3_BUCKET_NAME}.",
     )
     parser.add_argument(
         "--key-prefix",
         type=str,
         default=Config.DEFAULT_S3_KEY_PREFIX,
-        help=f"Specify the S3 key prefix. Defaults to {Config.DEFAULT_S3_KEY_PREFIX if Config.DEFAULT_S3_KEY_PREFIX else 'an empty string'}.",
+        help=f"Specify the S3 key prefix for the data file. Defaults to {Config.DEFAULT_S3_KEY_PREFIX if Config.DEFAULT_S3_KEY_PREFIX else 'an empty string'}.",
     )
     parser.add_argument(
         "--data-file",
         type=str,
         default=Config.DEFAULT_CONSTRUCTION_DATA_FILE,
-        help=f"Specify the output file name. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE}.",
+        help=f"Specify the data file name (the file created by the gather data script). Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE}.",
     )
     parser.add_argument(
         "--data-file-source",
         type=str,
         choices=["s3", "local"],
         default=Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE,
-        help=f"Specify the source of the data information file. Choices are: s3, local. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
+        help=f"Specify the source of the data file. Choices are: s3, local. Defaults to {Config.DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE}.",
     )
     parser.add_argument(
         "--logging",
