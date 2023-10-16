@@ -1,0 +1,25 @@
+account-number,region,account-description,tag-name
+123456789012,us-west-2,Account One,ClusterName
+123456789012,us-east-2,Account One,ClusterName
+123456789012,us-east-1,Account One,ClusterName
+123456789012,eu-west-1,Account One,ClusterName
+123456789012,us-west-2,Account One,Environment
+123456789012,us-east-2,Account One,Environment
+123456789012,us-east-1,Account One,Environment
+123456789012,eu-west-1,Account One,Environment
+210987654321,us-east-1,Account Two,ClusterName
+210987654321,us-east-2,Account Two,ClusterName
+210987654321,us-west-2,Account Two,ClusterName
+210987654321,eu-west-1,Account Two,ClusterName
+210987654321,us-east-1,Account Two,Environment
+210987654321,us-east-2,Account Two,Environment
+210987654321,us-west-2,Account Two,Environment
+210987654321,eu-west-1,Account Two,Environment
+678901234567,us-east-1,Account Three,ClusterName
+678901234567,us-east-2,Account Three,ClusterName
+678901234567,us-west-2,Account Three,ClusterName
+678901234567,eu-west-1,Account Three,ClusterName
+678901234567,us-east-1,Account Three,Environment
+678901234567,us-east-2,Account Three,Environment
+678901234567,us-west-2,Account Three,Environment
+678901234567,eu-west-1,Account Three,Environment
