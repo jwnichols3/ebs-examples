@@ -13,7 +13,7 @@ class Config:
     DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
     DEFAULT_S3_KEY_PREFIX = ""
     DEFAULT_DATA_FILE = "ebs-data.csv"
-    DEFAULT_DATA_FILE_SOURCE = "local"  # can be "local" or "s3"
+    DEFAULT_DATA_FILE_STORE = "local"  # can be "local" or "s3"
     DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
     DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # can be "local" or "s3"
     DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
@@ -295,11 +295,11 @@ def parse_args():
         help=f"Specify the output file name. Defaults to {Config.DEFAULT_DATA_FILE}.",
     )
     parser.add_argument(
-        "--data-file-source",
+        "--data-file-store",
         type=str,
         choices=["s3", "local"],
-        default=Config.DEFAULT_DATA_FILE_SOURCE,
-        help="Specify where to put the data file. Choices are: s3, local. Defaults to {Config.DEFAULT_DATA_FILE_SOURCE}.",
+        default=Config.DEFAULT_DATA_FILE_STORE,
+        help="Specify where to put the data file. Choices are: s3, local. Defaults to {Config.DEFAULT_DATA_FILE_STORE}.",
     )
     parser.add_argument(
         "--logging",
