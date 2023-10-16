@@ -4,6 +4,10 @@
 
 [TODO](./TODO.md)
 
+## Example Checklist
+
+An [example checklist](./CHECKLIST.md) to use when reviewing and deploying this functionality.
+
 ## Overview and Structure
 
 ![CloudWatch Cross Account Workflow Overview](images/ebs-cw-cross-account-overview.jpg)
