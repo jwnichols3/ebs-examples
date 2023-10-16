@@ -14,6 +14,12 @@ An [example checklist](./CHECKLIST.md) to use when reviewing and deploying this 
 
 [Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
 
+## Example of the Dashbaords
+
+This is a short video of how the Cross-Account dashboards look once deployed.
+
+![CloudWatch Cross Account Example Dashboards](images/ebs-cross-account-dashboard-example.gif)
+
 Here are some of the elements involved:
 
 - `Tags = Way to Group Dashboards` - the assumption is all AWS resources (EBS, EC2, etc) have a tag that can be leveraged to identify a way to group the dashboards. For example, the Application, relevant HDFS cluster, or similar.
@@ -22,14 +28,16 @@ Here are some of the elements involved:
 - `Gather Data Python Script` - the script that reads the `account-info.csv` to get the list of accounts, regions, and tags, then connects to the accounts using the `CrossAccountRole` to gather the list of EBS volumes that match the \* `Tag Name` then writes the list to `ebs-data-csv` file. The assumption is the `Tag Name` is present for all dashboard items and is used to identify grouping, such as for Cluster.
 - `ebs-data.csv` - the file (tabular csv format) that stores the list of EBS Volumes, This file is used by the `CloudWatch Dashboard Construction` script. This can be a local file or an S3 object.
 - `CloudWatch Dashboard Construction Python Script` - A script that reads `ebs-data.csv` to construct the ecosystem of CloudWatch Dashboards by Tag Name, Region, and Account. On each Dashboard are all the related EBS Volumes.
-- `CloudWatch Navigation Dashboard` - A top level CloudWatch Dashboard that helps end-users navigate the different clusters,
-- `CloudWatch Dashboard Cleanup Python Script` - a script that reads all the relevant CloudWatch Dashboards and removes any stale dashboards.
+  - `CloudWatch Navigation Dashboard` - Part of the `Construction` script creates top level CloudWatch Dashboard that helps end-users navigate the different clusters,
+  - `CloudWatch Dashboard Cleanup` - Part of the `Construction` script reads all the relevant CloudWatch Dashboards and removes any stale dashboards.
 
 ### Account Information
 
 The account information is a csv formatted file with a list of AWS Accounts. This Account Information file is local or S3. It has the following fields in CSV format:
 
 `account-number`,`region`,`account-description`,`tag-name`
+
+[Example Account Info](./account-info-example.csv)
 
 ### Gathering Data
 
@@ -43,6 +51,8 @@ The `Gather Data Python Script` writes a data file that has the volume-level inf
 
 `Account-Number`,`Account-Description`,`Region`,`Volume-ID`,`Volume-Status`,`Volume-Size`,`Volume-Type`,`Tag-Name`,`Tag-Value`
 
+[Example Data File](./ebs-data-example.py)
+
 ### Constructing the CloudWatch Dashboards
 
 The `CloudWatch Dashboard Construction Python Script` reads the `ebs-data.csv` file to construct or update the suite of CloudWatch Dashboards.
@@ -55,7 +65,7 @@ The `CloudWatch Dashboard Cleaup Python Script` reads the `ebs-data.csv` file an
 
 ## Risk and Open Questions
 
-- Figuring out how to deploy the cross-account, cross-region CloudWatch capabilities using automation.
+- Figuring out how to deploy the cross-account, cross-region CloudWatch capabilities using automation (Terraform, CFM, Python, etc).
 - Frequency and Impact of Dashboard updates - if these dashboards are actively used, what happens when the content is changed or the Dashboard deleted
 - Mechanisms to trigger the script(s) - options include SSM Automation (by an event or on a scheduler), CRON jobs on a EKS Pod
 - Expand behond EBS to other services, such as EC2, EKS, Network, and more.
