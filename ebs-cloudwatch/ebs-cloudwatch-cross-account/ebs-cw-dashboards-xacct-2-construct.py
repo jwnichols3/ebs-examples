@@ -58,6 +58,16 @@ def main():
         dashboard_names=created_dashboards,
     )
 
+    existing_dashboards = list_existing_dashboards(cloudwatch_client)
+    logging.info(f"Number of existing dashboards: {len(existing_dashboards)}")
+
+    dashboards_to_delete = set(existing_dashboards) - set(created_dashboards)
+    logging.info(f"Number of dashboard to delete: {len(dashboards_to_delete)}")
+    logging.info(f"Dashboards to delete:\n{dashboards_to_delete}")
+    for dashboard_name in dashboards_to_delete:
+        cloudwatch_client.delete_dashboards(DashboardNames=[dashboard_name])
+        logging.info(f"Deleted dashboard: {dashboard_name}")
+
 
 def read_construction_data(args, s3_client):
     source = args.data_file_source
@@ -352,6 +362,19 @@ def create_top_nav_widget():
             "markdown": f"## [button:primary:GO TO MAIN NAV]({main_nav_link})"
         },
     }
+
+
+def list_existing_dashboards(cloudwatch_client):
+    existing_dashboards = []
+    paginator = cloudwatch_client.get_paginator("list_dashboards")
+
+    for page in paginator.paginate():
+        for dashboard in page["DashboardEntries"]:
+            dashboard_name = dashboard["DashboardName"]
+            if dashboard_name.startswith(Config.CW_DASHBOARD_NAME_PREFIX):
+                existing_dashboards.append(dashboard_name)
+
+    return existing_dashboards
 
 
 def read_csv_from_s3(s3_client, bucket, key):
