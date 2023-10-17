@@ -20,6 +20,8 @@ This is a short video of how the Cross-Account dashboards look once deployed.
 
 ![CloudWatch Cross Account Example Dashboards](images/ebs-cross-account-dashboard-example.gif)
 
+## Elements and Concepts
+
 Here are some of the elements involved:
 
 - `Tags = Way to Group Dashboards` - the assumption is all AWS resources (EBS, EC2, etc) have a tag that can be leveraged to identify a way to group the dashboards. For example, the Application, relevant HDFS cluster, or similar.
@@ -39,13 +41,11 @@ The account information is a csv formatted file with a list of AWS Accounts. Thi
 
 [Example Account Info](./account-info-example.csv)
 
-### Gathering Data
+### Gathering and Writing the Data for the Dashboards
 
 The `Gather Data Python Script` cycles through the AWS Accounts and each specified region, collecting the EBS volumes based on the tag-name.
 
 The gather data script leverages A `Cross Account Role` is required to access the target accounts and query for the tagged resources. See below for the relevant IAM configuration.
-
-### Writing the Data File
 
 The `Gather Data Python Script` writes a data file that has the volume-level information in tabular format. The contents of this file is used to construct and update a suite of CloudWatch Dashboards. This file can reside locally or in S3. It has the following fields in csv format:
 
@@ -53,15 +53,13 @@ The `Gather Data Python Script` writes a data file that has the volume-level inf
 
 [Example Data File](./ebs-data-example.py)
 
-### Constructing the CloudWatch Dashboards
+### Constructing and Cleaning Up the CloudWatch Dashboards
 
 The `CloudWatch Dashboard Construction Python Script` reads the `ebs-data.csv` file to construct or update the suite of CloudWatch Dashboards.
 
 The script takes into consideration the CloudWatch Dashboard Limits, such as metrics per Dashboard. It will "shard" the dashboards to avoid hitting limits.
 
-### CloudWatch Dashboard Cleanup
-
-The `CloudWatch Dashboard Cleaup Python Script` reads the `ebs-data.csv` file and the existing CloudWatch Dashboards that match the naming pattern. It deletes any dashboards that are not present in the current data (stale dashboards).
+Once the CloudWatch Dashbaords are updated/created, the script gets the existing CloudWatch Dashboards based on a naming pattern defined using the `Config.CW_DASHBOARD_NAME_PREFIX` in the `Construction` script. It then compares the list of dashboards and deletes any stale dashboards.
 
 ## Risk and Open Questions
 
@@ -72,8 +70,13 @@ The `CloudWatch Dashboard Cleaup Python Script` reads the `ebs-data.csv` file an
 
 ## Pre-Requisits
 
-- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch).
-- IAM Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
+Also refer to the [CHECKLIST](./CHECKLIST.md)
+
+- IAM Role with Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
+- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch) | (Link to AWS Documentation)(https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+- IAM Role with Policies that can create, update, delete CloudWatch dashboards and metrics in the target accounts.
+
+TODO: Add Policy Examples
 
 ### Cross Account IAM Role
 
