@@ -1,11 +1,9 @@
 import boto3
-import botocore.exceptions
 import os
 import re
 import sys
 import time
 import argparse
-import configparser
 import base64
 import uuid
 from tabulate import tabulate
@@ -85,21 +83,24 @@ def main():
         )
         return
 
-    launch_instances(
-        instance_count=args.instances,
-        volume_count=args.volumes,
-        region=args.region,
-        az=args.az,
-        key_name=args.key,
-        security_group=args.sg,
-        vpc=args.vpc,
-        style=args.style,
-        ec2_client=ec2_client,
-        ec2_resource=ec2_resource,
-        quiet=args.quiet,
-        vol_type=args.vol_type,
-        clustername=args.clustername,
-    )
+    incoming_params = {
+        "ec2_client": ec2_client,
+        "ec2_resource": ec2_resource,
+        "instance_count": args.instances,
+        "volume_count": args.volumes,
+        "volume_type": args.vol_type,
+        "region": args.region,
+        "az": args.az,
+        "vpc": args.vpc,
+        "security_group": args.sg,
+        "key_name": args.key,
+        "quiet": args.quiet,
+        "clustername": args.clustername,
+        "fis_enabled": args.fis_enabled,
+        "style": args.style,
+    }
+
+    launch_instances(**incoming_params)
 
 
 def get_user_data_script():
@@ -610,21 +611,22 @@ def monitor_instance_status(
         )
 
 
-def launch_instances(
-    instance_count,
-    volume_count,
-    region,
-    az,
-    key_name,
-    security_group,
-    vpc,
-    style,
-    ec2_client,
-    ec2_resource,
-    quiet,
-    vol_type,
-    clustername,
-):
+def launch_instances(**kwargs):
+    instance_count = kwargs.get("instance_count", 1)
+    volume_count = kwargs.get("volume_count", 1)
+    region = kwargs.get("region", "us-west-2")
+    az = kwargs.get("az")
+    key_name = kwargs.get("key_name", "nokey")
+    security_group = kwargs.get("security_group")
+    vpc = kwargs.get("vpc")
+    style = kwargs.get("style")
+    ec2_client = kwargs.get("ec2_client")
+    ec2_resource = kwargs.get("ec2_resource")
+    quiet = kwargs.get("quiet", False)
+    vol_type = kwargs.get("volume_type", "gp3")
+    clustername = kwargs.get("clustername")
+    fis_enabled = kwargs.get("fis_enabled", False)
+
     launch_run_id = generate_launch_run_id()
     logging.info(f"LaunchRun ID: {launch_run_id}")
     if quiet:
@@ -739,6 +741,11 @@ def parse_args():
     )
     parser.add_argument(
         "--launchrun-list", action="store_true", help="List all unique LaunchRun IDs."
+    )
+    parser.add_argument(
+        "--fis-enabled",
+        action="store_true",
+        help="Include the FIS_Chaos tag set to True for EC2 and EBS volumes.",
     )
     parser.add_argument(
         "--quiet",
