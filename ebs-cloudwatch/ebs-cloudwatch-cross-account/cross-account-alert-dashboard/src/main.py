@@ -18,32 +18,44 @@ def main():
         {"name": "YourClusterName"},
         {"name": "ClusterName2"},
     ]  # ... (other clusters)
+    # Define Observability Account ID and Role
+    observability_account_id = "161521808930"
+    dashboard_manager_role = "CloudWatchDashboardManager"
 
-    # Iterate through each account, region, and cluster
     for account in accounts:
         for region in regions:
             for cluster in clusters:
-                # Discover Resources
-                instances, volumes = discover_resources(
-                    account["id"], account["role_name"], region, cluster["name"]
+                # Assume role in Application account for data gathering
+                app_session = assume_role(
+                    account["id"], "CrossAccountObservabilityRole", region
                 )
 
-                # Fetch Alarms Status
-                session = assume_role(
-                    account["id"], account["role_name"], region
-                )  # Assuming assume_role is imported or defined in this script
+                # Discover Resources and Fetch Alarms Status
+                instances, volumes = discover_resources(
+                    account["id"],
+                    "CrossAccountObservabilityRole",
+                    region,
+                    cluster["name"],
+                )
                 resources = {"Instances": instances, "Volumes": volumes}
-                alarms_status = fetch_alarms_status(session, resources)
+                print(f"Resource count: EC2 {len(instances)} + EBS {len(volumes)}")
+                alarms_status = fetch_alarms_status(app_session, resources)
+
+                # Assume role in Observability account for dashboard management
+                obs_session = assume_role(
+                    observability_account_id, dashboard_manager_role, region
+                )
 
                 # Create/Update Dashboard
                 response = manage_dashboard(
-                    account["id"],
-                    account["role_name"],
-                    region,
-                    cluster["name"],
-                    instances,
-                    volumes,
-                    alarms_status,
+                    account_id=observability_account_id,
+                    role_name=dashboard_manager_role,
+                    region=region,
+                    cluster_name=cluster["name"],
+                    instances=instances,
+                    volumes=volumes,
+                    alarms_status=alarms_status,
+                    session=obs_session,
                 )
                 print(f'Dashboard Response for {cluster["name"]}: {response}')
 
