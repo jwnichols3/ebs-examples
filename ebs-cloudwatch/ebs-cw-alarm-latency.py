@@ -3,12 +3,15 @@ import argparse
 import sys
 import logging
 
+
 # Constants
-PAGINATOR_COUNT = 100
-SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-DEFAULT_THRESHOLD = 200
-EVALUATION_PERIODS = 1
-DATAPOINTS_TO_ALARM = 1
+class Config:
+    PAGINATOR_COUNT = 100
+    SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
+    DEFAULT_THRESHOLD = 200
+    EVALUATION_PERIODS = 1
+    DATAPOINTS_TO_ALARM = 1
+
 
 # Initialize logging
 logging.basicConfig(
@@ -21,6 +24,9 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
     ec2, cloudwatch, sns = init_aws_clients()
     updated_alarms = []
 
+    if args.sns_topic:
+        Config.SNS_ALARM_ACTION_ARN = args.sns_topic
+
     if not check_sns_exists(sns):
         logging.error("SNS topic doesn't exist or is not accessible.")
         return
@@ -29,7 +35,7 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
     alarm_names = [
         alarm["AlarmName"]
         for page in cloudwatch.get_paginator("describe_alarms").paginate(
-            MaxRecords=PAGINATOR_COUNT
+            MaxRecords=Config.PAGINATOR_COUNT
         )
         for alarm in page["MetricAlarms"]
     ]
@@ -38,7 +44,7 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
     volume_ids = [
         vol["VolumeId"]
         for page in ec2.get_paginator("describe_volumes").paginate(
-            MaxResults=PAGINATOR_COUNT
+            MaxResults=Config.PAGINATOR_COUNT
         )
         for vol in page["Volumes"]
     ]
@@ -75,9 +81,9 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
             tagname,
             cloudwatch,
             metric_names=["VolumeTotalReadTime", "VolumeReadOps"],
-            threshold=DEFAULT_THRESHOLD,
-            evaluation_periods=EVALUATION_PERIODS,
-            datapoints_to_alarm=DATAPOINTS_TO_ALARM,
+            threshold=Config.DEFAULT_THRESHOLD,
+            evaluation_periods=Config.EVALUATION_PERIODS,
+            datapoints_to_alarm=Config.DATAPOINTS_TO_ALARM,
         )
         updated_alarms.append(volume_id)
 
@@ -107,7 +113,7 @@ def init_aws_clients():
 def check_sns_exists(sns):
     """Checks if the SNS topic exists."""
     try:
-        sns.get_topic_attributes(TopicArn=SNS_ALARM_ACTION_ARN)
+        sns.get_topic_attributes(TopicArn=Config.SNS_ALARM_ACTION_ARN)
         return True
     except Exception as e:
         logging.error(f"Error checking SNS topic: {e}")
@@ -127,7 +133,7 @@ def create_latency_alarm(
     alarm_name = construct_alarm_name("Read Latency", tagname, volume_id)
     alarm_details = {
         "AlarmName": alarm_name,
-        "AlarmActions": [SNS_ALARM_ACTION_ARN],
+        "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
         "EvaluationPeriods": evaluation_periods,
         "DatapointsToAlarm": datapoints_to_alarm,
         "Threshold": threshold,
@@ -180,6 +186,10 @@ def parse_args():
     parser.add_argument("--tag", help="Tag name to filter volumes.")
     parser.add_argument(
         "--refresh", action="store_true", help="Refresh existing alarms."
+    )
+    parser.add_argument(
+        "--sns-topic",
+        help=f"SNS Topic ARN to notify on alarm or ok. Default is {Config.SNS_ALARM_ACTION_ARN}",
     )
     parser.add_argument(
         "--tagless", action="store_true", help="Include volumes without tags."
