@@ -55,11 +55,20 @@ def create_update_dashboard(session, cluster_name, dashboard_body):
 
 
 def manage_dashboard(
-    account_id, role_name, region, cluster_name, instances, volumes, alarms_status
+    account_id,
+    role_name,
+    region,
+    cluster_name,
+    instances,
+    volumes,
+    alarms_status,
+    session=None,
 ):
-    session = assume_role(
-        account_id, role_name, region
-    )  # Assuming assume_role is imported from resource_discovery.py or defined in this script
+    if not session:
+        session = assume_role(
+            account_id, role_name, region
+        )  # Assuming assume_role is imported from resource_discovery.py or defined in this script
+
     dashboard_body = generate_dashboard_body(
         cluster_name, instances, volumes, alarms_status
     )
