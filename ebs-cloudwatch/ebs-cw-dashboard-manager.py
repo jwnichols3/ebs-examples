@@ -5,11 +5,13 @@ import json
 import sys
 import collections
 
+
 # Constants
-DASHBOARD_METRIC_LIMIT = 2500
-GRAPH_METRIC_LIMIT = 500
-GRAPH_DEFAULT_WIDTH = 12
-GRAPH_DEFAULT_HEIGHT = 5
+class Config:
+    DASHBOARD_METRIC_LIMIT = 2500
+    GRAPH_METRIC_LIMIT = 500
+    GRAPH_DEFAULT_WIDTH = 12
+    GRAPH_DEFAULT_HEIGHT = 5
 
 
 def main():
@@ -271,7 +273,9 @@ def manage_dashboard(
         widgets.append(widget)  # Append only the widget dictionary
         total_metric_count += num_metrics
 
-    total_shards = -(-total_metric_count // DASHBOARD_METRIC_LIMIT)  # Ceiling division
+    total_shards = -(
+        -total_metric_count // Config.DASHBOARD_METRIC_LIMIT
+    )  # Ceiling division
 
     # Split the widgets into smaller chunks if the total metrics exceed the limit
     current_metric_count = 0
@@ -281,7 +285,7 @@ def manage_dashboard(
         num_metrics = sum(
             1 for metric in widget["properties"]["metrics"] if isinstance(metric, list)
         )
-        if current_metric_count + num_metrics > DASHBOARD_METRIC_LIMIT:
+        if current_metric_count + num_metrics > Config.DASHBOARD_METRIC_LIMIT:
             # Create a new shard
             if verbose:
                 print(f"Creating shard {shard_index} of {total_shards}\n")
@@ -399,10 +403,10 @@ def parse_args(regions):
         description="Manage CloudWatch Dashboards for EBS Volumes."
     )
     parser.add_argument(
-        "--tag_keys", help="Comma-separated list of tag keys to group dashboards by."
+        "--tag-keys", help="Comma-separated list of tag keys to group dashboards by."
     )
     parser.add_argument(
-        "--tag_keys_file",
+        "--tag-keys-file",
         help="File containing tag keys to group dashboards by, one per line.",
     )
     parser.add_argument(

@@ -2,7 +2,9 @@ import boto3
 import argparse
 import json
 
-PAGINATION_COUNT = 300  # Set the number of items per page
+
+class Config:
+    PAGINATION_COUNT = 300  # Set the number of items per page
 
 
 def get_ebs_volumes():
@@ -11,7 +13,7 @@ def get_ebs_volumes():
     volumes = []
 
     # Iterate through each page of results
-    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
         for volume in page["Volumes"]:
             volumes.append(volume["VolumeId"])
 

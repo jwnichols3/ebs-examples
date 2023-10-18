@@ -4,10 +4,12 @@ import logging
 from datetime import datetime
 import argparse
 
-PAGINATION_COUNT = 300
-TIME_INTERVAL = 60
-GET_BATCH_SIZE = 500
-PUT_BATCH_SIZE = 1000
+
+class Config:
+    PAGINATION_COUNT = 300
+    TIME_INTERVAL = 60
+    GET_BATCH_SIZE = 500
+    PUT_BATCH_SIZE = 1000
 
 
 def main():
@@ -73,14 +75,16 @@ def main():
 
 def run_custom_metrics():
     logging.info(
-        f"Starting custom EBS metrics calculation. PAGINATION_COUNT: {PAGINATION_COUNT}"
+        f"Starting custom EBS metrics calculation. Config.PAGINATION_COUNT: {Config.PAGINATION_COUNT}"
     )
 
     cloudwatch = boto3.client("cloudwatch")
     ec2 = boto3.client("ec2")
 
     paginator = ec2.get_paginator("describe_volumes")
-    page_iterator = paginator.paginate(PaginationConfig={"PageSize": PAGINATION_COUNT})
+    page_iterator = paginator.paginate(
+        PaginationConfig={"PageSize": Config.PAGINATION_COUNT}
+    )
 
     for page in page_iterator:
         for volume in page["Volumes"]:
@@ -149,7 +153,8 @@ def run_custom_metrics():
                     },
                 ],
                 StartTime=time.strftime(
-                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - TIME_INTERVAL)
+                    "%Y-%m-%dT%H:%M:%SZ",
+                    time.gmtime(time.time() - Config.TIME_INTERVAL),
                 ),
                 EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             )
@@ -215,7 +220,9 @@ def run_custom_metrics_batch():
     ec2 = boto3.client("ec2")
 
     paginator = ec2.get_paginator("describe_volumes")
-    page_iterator = paginator.paginate(PaginationConfig={"PageSize": PAGINATION_COUNT})
+    page_iterator = paginator.paginate(
+        PaginationConfig={"PageSize": Config.PAGINATION_COUNT}
+    )
 
     metric_queries = []
     custom_metrics = []
@@ -290,7 +297,7 @@ def run_custom_metrics_batch():
             )
 
             # Process in batches
-            if len(metric_queries) == GET_BATCH_SIZE:
+            if len(metric_queries) == Config.GET_BATCH_SIZE:
                 process_metrics(cloudwatch, metric_queries, custom_metrics)
                 metric_queries = []
 
@@ -299,8 +306,8 @@ def run_custom_metrics_batch():
         process_metrics(cloudwatch, metric_queries, custom_metrics)
 
     # Publish custom metrics in batches
-    for i in range(0, len(custom_metrics), PUT_BATCH_SIZE):
-        batch = custom_metrics[i : i + PUT_BATCH_SIZE]
+    for i in range(0, len(custom_metrics), Config.PUT_BATCH_SIZE):
+        batch = custom_metrics[i : i + Config.PUT_BATCH_SIZE]
         cloudwatch.put_metric_data(Namespace="Custom_EBS", MetricData=batch)
 
     logging.info("Custom metrics updated for all volumes in batch mode.")
@@ -310,7 +317,7 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
     response = cloudwatch.get_metric_data(
         MetricDataQueries=metric_queries,
         StartTime=time.strftime(
-            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - TIME_INTERVAL)
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - Config.TIME_INTERVAL)
         ),
         EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     )
