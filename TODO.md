@@ -1,4 +1,4 @@
-# Overall EBS Examples To Do
+# EBS Examples To Do
 
 - [EBS CloudWatch](./ebs-cloudwatch/TODO.md)
 
