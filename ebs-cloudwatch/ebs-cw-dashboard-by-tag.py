@@ -5,8 +5,10 @@ import logging
 import sys
 import collections
 
-PAGINATION_COUNT = 300  # Set the number of items per page
-DASHBOARD_METRICS_LIMIT = 2500  # Set the number of metrics per dashboard.
+
+class Config:
+    PAGINATION_COUNT = 300  # Set the number of items per page
+    DASHBOARD_METRICS_LIMIT = 2500  # Set the number of metrics per dashboard.
 
 
 def main():
@@ -218,7 +220,7 @@ def construct_dashboard(
             current_metric_count += widget_metrics_count
 
             # Check if we exceed the limit
-            if current_metric_count > DASHBOARD_METRICS_LIMIT:
+            if current_metric_count > Config.DASHBOARD_METRICS_LIMIT:
                 # Create a new dashboard for the previous widgets
                 dashboard_name = create_new_dashboard(
                     cloudwatch=cloudwatch,
@@ -371,7 +373,7 @@ def get_all_volumes(ec2_client):
     paginator = ec2_client.get_paginator("describe_volumes")
     all_volumes = []
 
-    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
         if page.get("Volumes") is not None:  # Add this check
             all_volumes.extend(page["Volumes"])
 
@@ -397,7 +399,7 @@ def get_ebs_volume_information(ec2_client):
     paginator = ec2_client.get_paginator("describe_volumes")
     all_volume_info = []
 
-    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
         for volume in page["Volumes"]:
             all_volume_info.append(volume)
 

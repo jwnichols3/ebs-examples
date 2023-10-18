@@ -4,11 +4,13 @@ import logging
 from datetime import datetime
 import argparse
 
-PAGINATION_COUNT = 300
-TIME_INTERVAL = 60
-GET_BATCH_SIZE = 500
-PUT_BATCH_SIZE = 1000
-CW_CUSTOM_NAMESPACE = "Custom_EBS"
+
+class Config:
+    PAGINATION_COUNT = 300
+    TIME_INTERVAL = 60
+    GET_BATCH_SIZE = 500
+    PUT_BATCH_SIZE = 1000
+    CW_CUSTOM_NAMESPACE = "Custom_EBS"
 
 
 def main():
@@ -103,7 +105,9 @@ def run_custom_metrics_batch(validate):
     cloudwatch, ec2 = initialize_aws_services()
 
     paginator = ec2.get_paginator("describe_volumes")
-    page_iterator = paginator.paginate(PaginationConfig={"PageSize": PAGINATION_COUNT})
+    page_iterator = paginator.paginate(
+        PaginationConfig={"PageSize": Config.PAGINATION_COUNT}
+    )
 
     metric_queries = []
     custom_metrics = []
@@ -185,7 +189,7 @@ def run_custom_metrics_batch(validate):
             )
 
             # Process in batches
-            if len(metric_queries) == GET_BATCH_SIZE:
+            if len(metric_queries) == Config.GET_BATCH_SIZE:
                 new_volumes_with_metrics, new_volumes_without_metrics = process_metrics(
                     cloudwatch, metric_queries, custom_metrics
                 )
@@ -203,9 +207,11 @@ def run_custom_metrics_batch(validate):
         volumes_without_metrics += new_volumes_without_metrics
 
     # Publish custom metrics in batches
-    for i in range(0, len(custom_metrics), PUT_BATCH_SIZE):
-        batch = custom_metrics[i : i + PUT_BATCH_SIZE]
-        cloudwatch.put_metric_data(Namespace=CW_CUSTOM_NAMESPACE, MetricData=batch)
+    for i in range(0, len(custom_metrics), Config.PUT_BATCH_SIZE):
+        batch = custom_metrics[i : i + Config.PUT_BATCH_SIZE]
+        cloudwatch.put_metric_data(
+            Namespace=Config.CW_CUSTOM_NAMESPACE, MetricData=batch
+        )
 
         if validate:
             if validate_custom_metrics(cloudwatch, batch):
@@ -241,7 +247,7 @@ def process_metrics(cloudwatch, metric_queries, custom_metrics):
         response = cloudwatch.get_metric_data(
             MetricDataQueries=metric_queries,
             StartTime=time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - TIME_INTERVAL)
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - Config.TIME_INTERVAL)
             ),
             EndTime=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         )
@@ -323,7 +329,7 @@ def validate_custom_metrics(cloudwatch, custom_metrics_batch, verbose=False):
     delay = 1
     while retry_count > 0:
         metric_names_sent = set(metric["MetricName"] for metric in custom_metrics_batch)
-        metrics_received = cloudwatch.list_metrics(Namespace=CW_CUSTOM_NAMESPACE)
+        metrics_received = cloudwatch.list_metrics(Namespace=Config.CW_CUSTOM_NAMESPACE)
         metric_names_received = set(
             metric["MetricName"] for metric in metrics_received.get("Metrics", [])
         )

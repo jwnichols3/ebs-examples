@@ -5,7 +5,9 @@ from tabulate import tabulate
 
 # from prettytable import PrettyTable
 
-PAGINATION_COUNT = 300  # Set the desired value here
+
+class Config:
+    PAGINATION_COUNT = 300  # Set the desired value here
 
 
 def print_table(headers, data, style):
@@ -15,7 +17,7 @@ def print_table(headers, data, style):
 def get_volumes(client):
     all_volumes = []
     paginator = client.get_paginator("describe_volumes")
-    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
         volumes_in_use = [v for v in page["Volumes"] if v["State"] != "available"]
         all_volumes.extend(volumes_in_use)
     return all_volumes

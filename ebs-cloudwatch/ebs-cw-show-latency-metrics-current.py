@@ -4,8 +4,10 @@ import argparse
 from datetime import datetime, timedelta
 from tabulate import tabulate
 
-TIME_PERIOD = 300
-PAGINATION_COUNT = 300
+
+class Config:
+    TIME_PERIOD = 300
+    PAGINATION_COUNT = 300
 
 
 def get_metric_statistics(client, volume_id, metric_name):
@@ -17,7 +19,7 @@ def get_metric_statistics(client, volume_id, metric_name):
         ],
         StartTime=datetime.utcnow() - timedelta(minutes=5),
         EndTime=datetime.utcnow(),
-        Period=TIME_PERIOD,
+        Period=Config.TIME_PERIOD,
         Statistics=["Average"],
     )
     return response["Datapoints"][0]["Average"] if response["Datapoints"] else None
@@ -113,7 +115,7 @@ def main():
             table_data.append(calculate_latency(args.volume_id, ec2_resource))
         else:
             # Use paginator to handle pagination
-            for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+            for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
                 for volume in page["Volumes"]:
                     volume_id = volume["VolumeId"]
                     volume_data = calculate_latency(volume_id, ec2_resource)
@@ -153,5 +155,5 @@ def main():
 
 
 if __name__ == "__main__":
-    print(f"EBS Latency Calculator - time period {TIME_PERIOD} seconds")
+    print(f"EBS Latency Calculator - time period {Config.TIME_PERIOD} seconds")
     main()

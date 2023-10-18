@@ -6,7 +6,9 @@ from pytz import utc
 from tabulate import tabulate
 from botocore.exceptions import ClientError, BotoCoreError
 
-PAGINATOR_COUNT = 300
+
+class Config:
+    PAGINATOR_COUNT = 300
 
 
 def main(
@@ -141,7 +143,7 @@ def get_metrics(cloudwatch, metrics, volume_id, start_time, end_time):
             MetricDataQueries=metric_data_queries,
             StartTime=start_time,
             EndTime=end_time,
-            PaginationConfig={"PageSize": PAGINATOR_COUNT},
+            PaginationConfig={"PageSize": Config.PAGINATOR_COUNT},
         )
 
         data_points = {metric: [] for metric in metrics}
