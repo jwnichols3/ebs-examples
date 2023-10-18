@@ -5,6 +5,8 @@ import json
 
 class Config:
     PAGINATION_COUNT = 300  # Set the number of items per page
+    DASHBOARD_NAME = "EBS_Latency_Dashboard"
+    DASHBOARD_PERIOD = 60
 
 
 def get_ebs_volumes():
@@ -111,7 +113,7 @@ def create_dashboard(verbose=False, dry_run=False):
                         "stacked": False,
                         "region": "us-west-2",
                         "title": f"EBS-Latency ({volume})",
-                        "period": 300,
+                        "period": Config.DASHBOARD_PERIOD,
                         "stat": "Average",
                     },
                 }
@@ -126,7 +128,7 @@ def create_dashboard(verbose=False, dry_run=False):
     if not dry_run:
         print(f"Putting dashboard...")
         response = cloudwatch.put_dashboard(
-            DashboardName="Read_and_Write_Latency",
+            DashboardName=Config.DASHBOARD_NAME,
             DashboardBody=dashboard_body,
         )
         print("Put Dashboard Response:")
