@@ -3,13 +3,15 @@ import argparse
 import sys
 import logging
 
-# Constants
-INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
-SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # You only need to set this if the INCLUDE_OK_ACTION is True
-SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-PAGINATION_COUNT = 100
-ALARM_EVALUATION_TIME = 60
-METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
+
+class Config:
+    INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
+    SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
+    SNS_ALARM_ACTION_ARN = SNS_OK_ACTION_ARN
+    PAGINATION_COUNT = 100
+    ALARM_EVALUATION_TIME = 60
+    METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
+    DEFAULT_REGION = "us-west-2"
 
 
 def main():
@@ -30,16 +32,24 @@ def main():
     stats = {"created": 0, "updated": 0, "deleted": 0, "volumes_processed": 0}
     volumes_without_alarm = []
 
+    if args.sns_topic:
+        Config.SNS_ALARM_ACTION_ARN = args.sns_topic
+        Config.SNS_OK_ACTION_ARN = args.sns_topic
+
     # Check SNS existence here only for --all and --create
     if args.all or args.create:
-        if not check_sns_exists(sns=sns, sns_topic_arn=SNS_ALARM_ACTION_ARN):
-            logging.error(f"Invalid SNS ARN provided: {SNS_ALARM_ACTION_ARN}. Exiting.")
+        if not check_sns_exists(sns=sns, sns_topic_arn=Config.SNS_ALARM_ACTION_ARN):
+            logging.error(
+                f"Invalid SNS ARN provided: {Config.SNS_ALARM_ACTION_ARN}. Exiting."
+            )
             sys.exit(1)  # Stop the script here
 
-        if INCLUDE_OK_ACTION and not check_sns_exists(
-            sns=sns, sns_topic_arn=SNS_OK_ACTION_ARN
+        if Config.INCLUDE_OK_ACTION and not check_sns_exists(
+            sns=sns, sns_topic_arn=Config.SNS_OK_ACTION_ARN
         ):
-            logging.error(f"Invalid SNS ARN provided: {SNS_OK_ACTION_ARN}. Exiting.")
+            logging.error(
+                f"Invalid SNS ARN provided: {Config.SNS_OK_ACTION_ARN}. Exiting."
+            )
             sys.exit(1)  # Stop the script here
 
     if args.all:
@@ -130,7 +140,7 @@ def initialize_aws_clients(region):
 def get_all_volume_ids(ec2):
     paginator = ec2.get_paginator("describe_volumes")
     volume_ids = []
-    for page in paginator.paginate(MaxResults=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
         for volume in page["Volumes"]:
             volume_ids.append(volume["VolumeId"])
     logging.debug(f"Volume IDs:\n{volume_ids}")
@@ -140,7 +150,7 @@ def get_all_volume_ids(ec2):
 def get_all_alarm_names(cloudwatch):
     paginator = cloudwatch.get_paginator("describe_alarms")
     alarm_names = []
-    for page in paginator.paginate(MaxRecords=PAGINATION_COUNT):
+    for page in paginator.paginate(MaxRecords=Config.PAGINATION_COUNT):
         for alarm in page["MetricAlarms"]:
             alarm_names.append(alarm["AlarmName"])
     logging.debug(f"Volume IDs:\n{alarm_names}")
@@ -258,7 +268,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
     alarm_name = "ImpairedVol_" + volume_id
     alarm_details = {
         "AlarmName": alarm_name,
-        "AlarmActions": [SNS_ALARM_ACTION_ARN],
+        "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
         "EvaluationPeriods": 1,
         "DatapointsToAlarm": 1,
         "Threshold": 1.0,
@@ -271,7 +281,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                 "Expression": "IF(m3>0 AND m1+m2==0, 1, 0)",
                 "Label": "ImpairedVolume",
                 "ReturnData": True,
-                "Period": ALARM_EVALUATION_TIME,
+                "Period": Config.ALARM_EVALUATION_TIME,
             },
             {
                 "Id": "m3",
@@ -281,7 +291,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeQueueLength",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": METRIC_PERIOD,
+                    "Period": Config.METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -294,7 +304,7 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeReadOps",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": METRIC_PERIOD,
+                    "Period": Config.METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -307,23 +317,23 @@ def create_alarm(volume_id, cloudwatch, ec2):
                         "MetricName": "VolumeWriteBytes",
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": METRIC_PERIOD,
+                    "Period": Config.METRIC_PERIOD,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
             },
         ],
     }
-    if INCLUDE_OK_ACTION:
+    if Config.INCLUDE_OK_ACTION:
         alarm_details.append = {
-            "OKActions": [SNS_OK_ACTION_ARN],
+            "OKActions": [Config.SNS_OK_ACTION_ARN],
         }
 
     logging.info(f"Creating alarm {alarm_name} for volume {volume_id}.")
 
     # Create the new alarm
     try:
-        if INCLUDE_OK_ACTION:
+        if Config.INCLUDE_OK_ACTION:
             cloudwatch.put_metric_alarm(
                 AlarmName=alarm_details["AlarmName"],
                 OKActions=alarm_details["OKActions"],
@@ -496,6 +506,10 @@ def parse_args():
     )
     parser.add_argument("--volume-id", help="Specific volume id to operate on.")
     parser.add_argument(
+        "--sns-topic",
+        help=f"SNS Topic ARN to notify on alarm or ok. Default is {Config.SNS_ALARM_ACTION_ARN}",
+    )
+    parser.add_argument(
         "--create", action="store_true", help="Create CloudWatch Alarms."
     )
     parser.add_argument(
@@ -505,7 +519,9 @@ def parse_args():
         "--update", action="store_true", help="Update CloudWatch Alarms."
     )
     parser.add_argument(
-        "--region", default="us-west-2", help="AWS Region (defaults to us-west-2)."
+        "--region",
+        default=Config.DEFAULT_REGION,
+        help=f"AWS Region (defaults to {Config.DEFAULT_REGION}).",
     )
     parser.add_argument(
         "--all",
