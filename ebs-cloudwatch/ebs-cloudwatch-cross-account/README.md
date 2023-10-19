@@ -12,7 +12,9 @@ An [example checklist](./CHECKLIST.md) to use when reviewing and deploying this 
 
 ![CloudWatch Cross Account Workflow Overview](images/ebs-cw-cross-account-overview.jpg)
 
-[Setting up CloudWatch Cross Account Observability](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+[Setting up CloudWatch Cross Account Observability, aka Observability Access Manager (OAM)](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+
+[Terraform Module for CloudWatch Observability Access Manager (OAM)](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/oam_link)
 
 ## Example of the Dashbaords
 
@@ -64,6 +66,7 @@ Once the CloudWatch Dashbaords are updated/created, the script gets the existing
 ## Risk and Open Questions
 
 - Figuring out how to deploy the cross-account, cross-region CloudWatch capabilities using automation (Terraform, CFM, Python, etc).
+  - Update: [Terraform capabilities - OAM - Observability Access Manager](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/oam_link)
 - Frequency and Impact of Dashboard updates - if these dashboards are actively used, what happens when the content is changed or the Dashboard deleted
 - Mechanisms to trigger the script(s) - options include SSM Automation (by an event or on a scheduler), CRON jobs on a EKS Pod
 - Expand behond EBS to other services, such as EC2, EKS, Network, and more.
