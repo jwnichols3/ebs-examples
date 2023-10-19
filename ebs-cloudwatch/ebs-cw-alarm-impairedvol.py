@@ -8,9 +8,11 @@ class Config:
     INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
     SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
     SNS_ALARM_ACTION_ARN = SNS_OK_ACTION_ARN
+    ALARM_PREFIX = "ImpairedVol_"
     PAGINATION_COUNT = 100
     ALARM_EVALUATION_TIME = 60
     METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
+    ALARM_EVALUATION_PERIODS = 2
     DEFAULT_REGION = "us-west-2"
 
 
@@ -26,7 +28,8 @@ def main():
         logging.basicConfig(level=logging.WARNING)
 
     ec2, cloudwatch, sns = initialize_aws_clients(args.region)
-    volume_ids = get_all_volume_ids(ec2=ec2)
+    tag_name, tag_value = args.tag if args.tag else (None, None)
+    volume_ids = get_all_volume_ids(ec2=ec2, tag_name=tag_name, tag_value=tag_value)
     alarm_names = get_all_alarm_names(cloudwatch=cloudwatch)
 
     stats = {"created": 0, "updated": 0, "deleted": 0, "volumes_processed": 0}
@@ -137,10 +140,17 @@ def initialize_aws_clients(region):
     return ec2, cloudwatch, sns
 
 
-def get_all_volume_ids(ec2):
+def get_all_volume_ids(ec2, tag_name=None, tag_value=None):
     paginator = ec2.get_paginator("describe_volumes")
     volume_ids = []
-    for page in paginator.paginate(MaxResults=Config.PAGINATION_COUNT):
+
+    filter_args = []
+    if tag_name and tag_value:
+        filter_args.append({"Name": f"tag:{tag_name}", "Values": [tag_value]})
+
+    for page in paginator.paginate(
+        Filters=filter_args, MaxResults=Config.PAGINATION_COUNT
+    ):
         for volume in page["Volumes"]:
             volume_ids.append(volume["VolumeId"])
     logging.debug(f"Volume IDs:\n{volume_ids}")
@@ -158,7 +168,7 @@ def get_all_alarm_names(cloudwatch):
 
 
 def handle_single_volume(volume_id, alarm_names, cloudwatch, ec2, sns, args):
-    alarm_name = "ImpairedVol_" + volume_id
+    alarm_name = Config.ALARM_PREFIX + volume_id
     if alarm_name not in alarm_names:
         create_alarm(volume_id=volume_id, cloudwatch=cloudwatch, ec2=ec2, sns=sns)
     else:
@@ -208,17 +218,103 @@ def check_sns_exists(sns, sns_topic_arn):
             sys.exit(1)  # Stop the script here
 
 
+def generate_desired_alarm_details(volume_id, ec2):
+    alarm_description = generate_alarm_description(volume_id, ec2)
+
+    desired_alarm_details = {
+        "AlarmDescription": alarm_description,
+        "Threshold": 1.0,
+        "EvaluationPeriods": Config.ALARM_EVALUATION_PERIODS,
+        "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
+        "DatapointsToAlarm": Config.ALARM_EVALUATION_PERIODS,
+        # ... any other alarm attributes
+    }
+    return desired_alarm_details
+
+
 def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
     updated_count = 0
+
     for volume_id in volume_ids:
-        if update_alarm_description(
-            volume_id=volume_id,
-            cloudwatch=cloudwatch,
-            ec2=ec2,
-            volumes_without_alarm=volumes_without_alarm,
-        ):  # Assume it returns True if updated
-            updated_count += 1
+        alarm_name = "ImpairedVol_" + volume_id
+        existing_alarms = cloudwatch.describe_alarms(AlarmNames=[alarm_name])[
+            "MetricAlarms"
+        ]
+
+        if not existing_alarms:
+            if volumes_without_alarm is not None:
+                volumes_without_alarm.append(volume_id)
+            continue
+
+        existing_alarm = existing_alarms[0]
+        desired_alarm_details = generate_desired_alarm_details(volume_id, ec2)
+
+        should_update = False
+
+        # Specify which keys you want to compare
+        keys_to_compare = [
+            "AlarmDescription",
+            "Threshold",
+            "EvaluationPeriods",
+            "AlarmActions",
+            "DatapointsToAlarm",
+        ]
+
+        for key in keys_to_compare:
+            if existing_alarm.get(key) != desired_alarm_details.get(key):
+                should_update = True
+                existing_alarm[key] = desired_alarm_details[key]
+
+        if should_update:
+            # Filter out invalid keys and update the alarm
+            valid_keys = [
+                "AlarmName",
+                "AlarmDescription",
+                "ActionsEnabled",
+                "OKActions",
+                "AlarmActions",
+                "InsufficientDataActions",
+                "MetricName",
+                "Namespace",
+                "Statistic",
+                "ExtendedStatistic",
+                "Period",
+                "Unit",
+                "EvaluationPeriods",
+                "DatapointsToAlarm",
+                "Threshold",
+                "ComparisonOperator",
+                "TreatMissingData",
+                "EvaluateLowSampleCountPercentile",
+                "Metrics",
+                "Tags",
+                "ThresholdMetricId",
+            ]
+            filtered_alarm = {
+                k: existing_alarm[k] for k in valid_keys if k in existing_alarm
+            }
+
+            try:
+                cloudwatch.put_metric_alarm(**filtered_alarm)
+                logging.info(f"Updated alarm {alarm_name}")
+                updated_count += 1
+            except Exception as e:
+                logging.error(f"Failed to update alarm {alarm_name}: {e}")
+
     return updated_count
+
+
+# def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
+#    updated_count = 0
+#    for volume_id in volume_ids:
+#        if update_alarm_description(
+#            volume_id=volume_id,
+#            cloudwatch=cloudwatch,
+#            ec2=ec2,
+#            volumes_without_alarm=volumes_without_alarm,
+#        ):  # Assume it returns True if updated
+#            updated_count += 1
+#    return updated_count
 
 
 def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
@@ -269,8 +365,8 @@ def create_alarm(volume_id, cloudwatch, ec2):
     alarm_details = {
         "AlarmName": alarm_name,
         "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
-        "EvaluationPeriods": 1,
-        "DatapointsToAlarm": 1,
+        "EvaluationPeriods": Config.ALARM_EVALUATION_PERIODS,
+        "DatapointsToAlarm": Config.ALARM_EVALUATION_PERIODS,
         "Threshold": 1.0,
         "ComparisonOperator": "GreaterThanOrEqualToThreshold",
         "TreatMissingData": "missing",
@@ -511,6 +607,12 @@ def parse_args():
     )
     parser.add_argument(
         "--create", action="store_true", help="Create CloudWatch Alarms."
+    )
+    parser.add_argument(
+        "--tag",
+        nargs=2,
+        metavar=("TagName", "TagValue"),
+        help="TagName and TagValue to filter EBS volumes.",
     )
     parser.add_argument(
         "--cleanup", action="store_true", help="Cleanup CloudWatch Alarms."
