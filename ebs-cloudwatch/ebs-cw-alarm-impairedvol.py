@@ -7,12 +7,16 @@ import logging
 class Config:
     INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
     SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
-    SNS_ALARM_ACTION_ARN = SNS_OK_ACTION_ARN
-    ALARM_PREFIX = "ImpairedVol_"
-    PAGINATION_COUNT = 100
-    ALARM_EVALUATION_TIME = 60
+    SNS_ALARM_ACTION_ARN = (
+        SNS_OK_ACTION_ARN  # For simplicity, use same SNS topic for Alarm and OK actions
+    )
+    ALARM_PREFIX = (
+        "ImpairedVol_"  # A clean way to identify these automatically created Alarms.
+    )
+    PAGINATION_COUNT = 100  # EBS Get volume pagination count
+    ALARM_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
     METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
-    ALARM_EVALUATION_PERIODS = 2
+    ALARM_EVALUATION_PERIODS = 2  # How many times does the threshold have to breached before setting off the alarm
     DEFAULT_REGION = "us-west-2"
 
 
@@ -112,6 +116,7 @@ def generate_alarm_description(volume_id, ec2):
 
     alarm_description = f"Alarm for EBS volume {volume_id} in {availability_zone}."
 
+    #### Launch Run is a setting used by the e2e-launch-ec2-instances.py script in this repo.
     launch_run_tag = tags_dict.get("LaunchRun", "")
     if launch_run_tag:
         alarm_description += f"\nLaunchRun: {launch_run_tag}"
@@ -302,19 +307,6 @@ def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
                 logging.error(f"Failed to update alarm {alarm_name}: {e}")
 
     return updated_count
-
-
-# def update_alarms(volume_ids, cloudwatch, ec2, volumes_without_alarm):
-#    updated_count = 0
-#    for volume_id in volume_ids:
-#        if update_alarm_description(
-#            volume_id=volume_id,
-#            cloudwatch=cloudwatch,
-#            ec2=ec2,
-#            volumes_without_alarm=volumes_without_alarm,
-#        ):  # Assume it returns True if updated
-#            updated_count += 1
-#    return updated_count
 
 
 def cleanup_alarms(volume_ids, alarm_names, cloudwatch):
