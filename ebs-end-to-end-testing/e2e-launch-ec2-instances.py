@@ -390,17 +390,17 @@ def list_unique_launch_runs(ec2_client, ec2_resource, region):
     return unique_launch_runs
 
 
-def handle_user_inputs(
-    instance_count,
-    volume_count,
-    key_name,
-    vpc,
-    az,
-    security_group,
-    ec2_client,
-    vol_type,
-    clustername,
-):
+def handle_user_inputs(**kwargs):
+    instance_count = kwargs.get("instance_count")
+    volume_count = kwargs.get("volume_count")
+    key_name = kwargs.get("key_name")
+    vpc = kwargs.get("vpc")
+    az = kwargs.get("az")
+    security_group = kwargs.get("security_group")
+    ec2_client = kwargs.get("ec2_client")
+    vol_type = kwargs.get("vol_type")
+    clustername = kwargs.get("clustername")
+
     if instance_count is None:
         instance_count = int(input("Please enter the number of instances: "))
 
@@ -464,28 +464,29 @@ def handle_user_inputs(
         )
         security_group = selected_option[0]
 
-    return (
-        instance_count,
-        volume_count,
-        key_name,
-        vpc,
-        az,
-        security_group,
-        vol_type,
-        clustername,
-    )
+    return_set = {
+        "instance_count": instance_count,
+        "volume_count": volume_count,
+        "key_name": key_name,
+        "vpc": vpc,
+        "az": az,
+        "security_group": security_group,
+        "vol_type": vol_type,
+        "clustername": clustername,
+    }
+
+    return return_set
 
 
-def prepare_launch_params(
-    instance_count,
-    volume_count,
-    ec2_client,
-    az,
-    security_group,
-    vpc,
-    vol_type="gp3",
-    key_name=None,
-):
+def prepare_launch_params(**kwargs):
+    volume_count = kwargs.get("volume_count")
+    ec2_client = kwargs.get("ec2_client")
+    az = kwargs.get("az")
+    security_group = kwargs.get("security_group")
+    vpc = kwargs.get("vpc")
+    vol_type = kwargs.get("vol_type", "gp3")
+    key_name = kwargs.get("key_name", None)
+
     ami_id = get_latest_amazon_linux_ami(ec2_client)
     block_device_mappings = []
     volume_size_map = {
@@ -631,36 +632,46 @@ def launch_instances(**kwargs):
     logging.info(f"LaunchRun ID: {launch_run_id}")
     if quiet:
         print(f"{launch_run_id}")
-    (
-        instance_count,
-        volume_count,
-        key_name,
-        vpc,
-        az,
-        security_group,
-        vol_type,
-        clustername,
-    ) = handle_user_inputs(
-        instance_count=instance_count,
-        volume_count=volume_count,
-        key_name=key_name,
-        vpc=vpc,
-        az=az,
-        security_group=security_group,
-        ec2_client=ec2_client,
-        vol_type=vol_type,
-        clustername=clustername,
-    )
-    launch_params = prepare_launch_params(
-        instance_count=instance_count,
-        volume_count=volume_count,
-        ec2_client=ec2_client,
-        az=az,
-        security_group=security_group,
-        vpc=vpc,
-        key_name=key_name,
-        vol_type=vol_type,
-    )
+
+    user_inputs = {
+        "instance_count": instance_count,
+        "volume_count": volume_count,
+        "key_name": key_name,
+        "vpc": vpc,
+        "az": az,
+        "security_group": security_group,
+        "ec2_client": ec2_client,
+        "vol_type": vol_type,
+        "clustername": clustername,
+    }
+
+    returned_user_inputs = handle_user_inputs(**user_inputs)
+
+    instance_count = returned_user_inputs["instance_count"]
+    volume_count = returned_user_inputs["volume_count"]
+    key_name = returned_user_inputs["key_name"]
+    vpc = returned_user_inputs["vpc"]
+    az = returned_user_inputs["az"]
+    security_group = returned_user_inputs["security_group"]
+    vol_type = returned_user_inputs["vol_type"]
+    clustername = returned_user_inputs["clustername"]
+
+    launch_params_input = {
+        "instance_count": instance_count,
+        "volume_count": volume_count,
+        "ec2_client": ec2_client,
+        "az": az,
+        "security_group": security_group,
+        "vpc": vpc,
+        "key_name": key_name,
+        "vol_type": vol_type,
+    }
+    launch_params = prepare_launch_params(**launch_params_input)
+
+    if fis_enabled:
+        fis_key_value = "True"
+    else:
+        fis_key_value = "False"
 
     launch_params["TagSpecifications"] = [
         {
@@ -668,6 +679,7 @@ def launch_instances(**kwargs):
             "Tags": [
                 {"Key": "LaunchRun", "Value": launch_run_id},
                 {"Key": "ClusterName", "Value": clustername},
+                {"Key": "FIS_Chaos", "Value": fis_key_value},
             ],
         },
         {
@@ -675,6 +687,7 @@ def launch_instances(**kwargs):
             "Tags": [
                 {"Key": "LaunchRun", "Value": launch_run_id},
                 {"Key": "ClusterName", "Value": clustername},
+                {"Key": "FIS_Chaos", "Value": fis_key_value},
             ],
         },
     ]
@@ -702,7 +715,7 @@ def launch_instances(**kwargs):
             if key_name is not None and key_name.lower() != "nokey"
             else "--key 'nokey'"
         )
-        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --vol-type {vol_type} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option} --cluster-name {clustername}"
+        comparable_cli_command = f"{python_executable} {script_name} --instances {instance_count} --volumes {volume_count} --vol-type {vol_type} --region {region} --vpc {vpc} --az {az} --sg {security_group} {key_option} --clustername {clustername}"
         logging.info(f"\nThe LaunchRun for this group is {launch_run_id}\n")
         logging.info(f"\nComparable CLI Command:\n{comparable_cli_command}")
 
@@ -763,101 +776,6 @@ def parse_args():
     )
 
     return parser.parse_args()
-
-
-### In Progress
-class EC2Manager:
-    def __init__(self, region):
-        self.ec2_client = boto3.client("ec2", region_name=region)
-        self.region = region
-
-    def get_key_pairs(self):
-        response = self.ec2_client.describe_key_pairs()
-        return [key_pair["KeyName"] for key_pair in response["KeyPairs"]]
-
-    def get_latest_amazon_linux_ami(self):
-        response = self.ec2_client.describe_images(
-            Filters=[
-                {"Name": "name", "Values": ["amzn2-ami-hvm-*"]},
-                {"Name": "architecture", "Values": ["x86_64"]},
-                {"Name": "virtualization-type", "Values": ["hvm"]},
-                {"Name": "owner-alias", "Values": ["amazon"]},
-                {"Name": "state", "Values": ["available"]},
-            ],
-            Owners=["amazon"],
-        )
-        amis = sorted(response["Images"], key=lambda x: x["CreationDate"], reverse=True)
-        return amis[0]["ImageId"]
-
-    def launch_instances(
-        self,
-        instance_count,
-        volume_count,
-        key_name,
-        az,
-        security_group,
-        vpc,
-        style,
-        quiet,
-    ):
-        launch_run_id = str(uuid.uuid4())
-        if not quiet:
-            logging.info(f"LaunchRun ID: {launch_run_id}")
-
-        instance_count = int(instance_count)
-        volume_count = int(volume_count)
-
-        ami_id = self.get_latest_amazon_linux_ami()
-        block_device_mappings = []
-
-        for i in range(volume_count):
-            block_device_mappings.append(
-                {
-                    "DeviceName": f'/dev/sd{"b" if i == 0 else chr(ord("b") + i)}',
-                    "Ebs": {
-                        "VolumeType": "gp3",
-                        "VolumeSize": 2,
-                    },
-                }
-            )
-
-        user_data_script = """#!/bin/bash
-yum -y install fio
-for device_path in /dev/nvme1n*; do
-# Random read/write I/O
-fio --name=random-rw --ioengine=posixaio --rw=randrw --rwmixread=70 --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-# Sequential read/write I/O
-fio --name=sequential-rw --ioengine=posixaio --rw=rw --bs=128k --numjobs=4 --size=1g --time_based --filename=$device_path &
-# Random write I/O
-fio --name=random-write --ioengine=posixaio --rw=randwrite --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-# Random read I/O
-fio --name=random-read --ioengine=posixaio --rw=randread --bs=4k --numjobs=4 --size=1g --time_based --filename=$device_path &
-done"""
-
-        launch_params = {
-            "ImageId": ami_id,
-            "InstanceType": "m5.large",
-            "MaxCount": instance_count,
-            "MinCount": instance_count,
-            "Placement": {"AvailabilityZone": az},
-            "UserData": base64.b64encode(user_data_script.encode()).decode(),
-            "BlockDeviceMappings": block_device_mappings,
-            "SubnetId": "subnet-12345678",  # Replace with your Subnet ID
-            "KeyName": key_name,
-            "SecurityGroupIds": [security_group],
-        }
-
-        response = self.ec2_client.run_instances(**launch_params)
-        instance_ids = [instance["InstanceId"] for instance in response["Instances"]]
-
-        if not quiet:
-            logging.info("Launched instances: {}".format(", ".join(instance_ids)))
-
-        return launch_run_id
-
-    def list_unique_launch_runs(self):
-        # Your existing code to list unique launch runs
-        pass
 
 
 if __name__ == "__main__":
