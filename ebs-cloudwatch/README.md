@@ -1,54 +1,54 @@
 # EBS CloudWatch Examples
 
-# TODO
+## TODO
 
 [TO DO](TODO.md)
 
-# Overview
+## Overview
 
 This folder contains the stand-alone Python scripts to update CloudWatch Alarms, show if any EBS volumes are in the Impaired status, show latency metrics, create custom CloudWatch metrics for read and write latency, example CloudWatch dashboards, and more.
 
-# Disclaimer
+## Disclaimer
 
 Please note: These scripts are intended for educational purposes and are not recommended for production use. Always test scripts in a controlled environment before using them in a production capacity. There is minimum error handling implemented and not all scenarious are accounted for such as scale, access controls, and input validation. There is an inherent assumption that you have a way to run these scripts on a system that has access to the AWS account in question and the required privileges.
 
-# Python Scripts Overview
+## Python Scripts Overview
 
-These are the Python scripts included in this repository. More details of each script are provided below.
+These are the Python scripts included in this repository. More details of each script are provided below. These are configured as stand-alone scripts so there are repeated sections for things like importing libraries and establishing AWS credentials that could be refactored into common/shared modules/functions to reduce duplication.
 
-## ebs-cloudwatch directory
+### ebs-cloudwatch directory
 
-`ebs-cw-alarm-impairedvol.py`
+[`ebs-cw-alarm-impairedvol.py`](./ebs-cw-alarm-impairedvol.py)
 
 This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
 
-`ebs-cw-dashboard-latency.py`
+[`ebs-cw-dashboard-latency.py`](./ebs-cw-dashboard-latency.py)
 
 This Python script creates a CloudWatch Dashboard named "Read and Write Latency". The dashboard includes two calculated metrics for every EBS volume in the AWS Account.
 
-`ebs-cw-show-detailed-metrics-for-latency-by-vol.py`
+[`ebs-cw-show-detailed-metrics-for-latency-by-vol.py`](./ebs-cw-show-detailed-metrics-for-latency-by-vol.py)
 
-This Python script displays detailed CloudWatch metrics for read, write, and overall latency for each EBS volume in the AWS account. It calculates and prints these metrics for each volume for a given time frame (defaulting in the last 24 hours). This provides visibility into the latency performance of each EBS volume over time. You can use this with the `--style` option of `tvs` to output in a tabular format for easy importing into spreadsheets or other tools.
+This Python script prints detailed CloudWatch metrics for read, write, and overall latency for each EBS volume in the AWS account. It calculates and prints these metrics for each volume for a given time frame (defaulting in the last 24 hours). This provides visibility into the latency performance of each EBS volume over time. You can use this with the `--style` option of `tvs` to output in a tabular format for easy importing into spreadsheets or other tools.
 
-`ebs-cw-show-latency-metrics-current.py`
+[`ebs-cw-show-latency-metrics-current.py`](./ebs-cw-show-latency-metrics-current.py)
 
 This Python script calculates and displays the read, write, and overall latency for EBS volumes in an AWS account. It uses CloudWatch metrics to calculate the latencies.
 
-`ebs-cw-show-impairedvol.py`
+[`ebs-cw-show-impairedvol.py`](./ebs-cw-show-impairedvol.py)
 
 This Python script monitors the I/O operations for Amazon EBS volumes in an AWS account and creates CloudWatch Alarms for "impaired" volumes. A "impaired" volume is one that has a queue length but no read or write operations.
 
-`ebs-cw-custom-metric-latency-batch.py`
+[`ebs-cw-custom-metric-latency-batch.py`](./ebs-cw-custom-metric-latency-batch.py)
 
-This Python script collects CloudWatch metrics required to calculate Read and Write Latency per EBS Volume. It then puts custom Read, Write, and Total Latency metrics per volume into CloudWatch. Having the custom metrics for Latency enables the creation of dashboards that leverage dynamic queries (as of Sep 2023, CloudWatch dashboards support a single metric query - latency requires a complex query).
+This Python script collects CloudWatch metrics required to calculate Read and Write Latency per EBS Volume. It then batch writes custom Read, Write, and Total Latency metrics per volume into CloudWatch. Having the custom metrics for Latency enables the creation of dashboards that leverage dynamic queries (as of Sep 2023, CloudWatch dashboards support a single metric query - latency requires a complex query).
 
-`ebs-cw-custom-metric-latency.py`
+[`ebs-cw-custom-metric-latency.py`](./ebs-cw-custom-metric-latency.py)
 
 This Python script collects CloudWatch metrics required to calculate Read and Write Latency per EBS Volume. It then puts custom Read, Write, and Total Latency metrics per volume into CloudWatch. Having the custom metrics for Latency enables the creation of dashboards that leverage dynamic queries (as of Sep 2023, CloudWatch dashboards support a single metric query - latency requires a complex query). There is an example dashboard configuration included that shows the Top 10 Read Latency by volume.
 
 Note: the difference between the `-batch` and non batch version are included to show you the difference between cycling through each volume individually vs batch processing all volumes at once. Batch processing is more efficient for large fleets but the non-batch version may be easier to follow from a code perspective.
 
-## CloudWatch Dashboard Examples in ebs-cloudwatch directory
+### CloudWatch Dashboard Examples in ebs-cloudwatch directory
 
 This folder also contains example CloudWatch dashboard JSON files that visualize EBS metrics including latency. These dashboards leverage the custom latency metrics created by the Python scripts.
 
@@ -59,29 +59,31 @@ There are two example dashboards included:
 
 These are examples of dashboards that visualize read latency, write latency, and total latency for EBS volumes using the custom latency metrics created by the Python scripts. The top 10 read latency dashboard shows the volumes with the highest read latency, while the read/write dashboard shows these metrics for all volumes on a single dashboard.
 
-# Python Script Details
+## Python Script Details
 
-## ebs-cw-alarm-impairedvol.py
+### CloudWatch Alarm Scripts
+
+#### ebs-cw-alarm-impairedvol.py
 
 Create CloudWatch Alarm for EBS Impaired Volumes
 
-This Python script uses the AWS SDK (boto3) to create AWS CloudWatch Alarms for Amazon EBS volumes. The purpose of these alarms is to alert when EBS volumes become "impaired," or unresponsive. The script provides options to create alarms for a specific volume, for all volumes, or to clean up alarms for volumes that no longer exist.
+Details are in [README-ebs-cw-alarm-impairedvol](./README-ebs-cw-alarm-impairedvol.md).
 
-The Alert name has a pattern `ImpairedVol_{volume-id}`
+#### ebs-cw-alarm-latency.py
 
-Change the `SNS_ALARM_ACTION_ARN` variable to an SNS topic ARN to send alarm notifications.
+Create CloudWatch Alarm for EBS Latency
 
-An Impaired Volume is determined by looking for `(ReadOps + WriteOps = 0)` and `Queue Lenght > 0` for `5 minutes. (the number of minutes is adjustable)
+Details are in [README-ebs-cw-alarm-latency](./README-ebs-cw-alarm-latency.md).
 
-Additional details are in [README-ebs-cw-alarm-impairedvol](README-ebs-cw-alarm-impairedvol.md).
+### CloudWatch Custom Metrics
 
-## ebs-cw-custom-metric-latency-batch.py and ebs-cw-custom-metric-latency.py
+#### ebs-cw-custom-metric-latency-batch.py and ebs-cw-custom-metric-latency.py
 
 Note: the difference between the `-batch` and non batch version are included to show you the difference between cycling through each volume individually vs batch processing all volumes at once. Batch processing is more efficient for large fleets but the non-batch version may be easier to follow from a code perspective.
 
 This Python script collects CloudWatch metrics required to calculate Read and Write Latency per EBS Volume. It then puts custom Read, Write, and Total Latency metrics per volume into CloudWatch. Having the custom metrics for Latency enables the creation of dashboards that leverage dynamic queries (as of Sep 2023, CloudWatch dashboards support a single metric query - latency requires a complex query).
 
-### Method
+##### Method
 
 Retrieves the following metrics from CloudWatch for all EBS volumes:
 
@@ -100,21 +102,21 @@ Publishes custom CloudWatch metrics for each volume:
 
 Metrics are put in batches for efficiency
 
-### Usage
+##### Usage
 
 `python ebs-cw-custom-metric-latency-batch.py [options]`
 
-### Options
+##### Options
 
 --repeat: Number of times to repeat metric collection. Default is 1.
 --sleep: Seconds to sleep between repeats. Default is 5.
 --verbose: Enable debug logging.
 
-### Requirements
+##### Requirements
 
 boto3
 
-### Credentials configured to access CloudWatch
+##### Credentials configured to access CloudWatch
 
 EC2 Permissions:
 `ec2:DescribeVolumes`
@@ -151,7 +153,9 @@ Here is an example IAM Policy with these permissions.
 }
 ```
 
-## ebs-cw-dashboard-latency.py
+### CloudWatch Dashboards
+
+#### ebs-cw-dashboard-latency.py
 
 Create EBS CloudWatch Dashboard with Volume Latency.
 
@@ -159,19 +163,19 @@ This Python script uses the AWS SDK (boto3) to create a CloudWatch Dashboard nam
 
 Note: There are limits to the CloudWatch Dashboard and Graphs. As of the time of this script, the overall Dashboard has a limit of 2500 time series and each graph has a limit of 500 time series. Check the [CloudWatch Service Limits](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_limits.html) to verify.
 
-### Python Requirements
+##### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Python Module Installation
+##### Python Module Installation
 
 1. Make sure that you have Python 3.6 or newer installed.
 2. Install Boto3 using pip (`pip install boto3 argparse`).
 
-### AWS Access Permissions
+##### AWS Access Permissions
 
 _CloudWatch Permissions:_
 
@@ -185,18 +189,18 @@ EC2 Permissions
 
 - `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
 
-### Usage
+##### Usage
 
 You can run the script from the command line with the following syntax:
 
 `python ebs-cw-dashboard-latency.py [arguments]`
 
-### Arguments
+##### Arguments
 
 - `--verbose`: If this argument is supplied, the script will output debug statements.
 - `--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
 
-### Examples
+##### Examples
 
 To run the script with verbose output:
 
@@ -206,7 +210,7 @@ To see what the dashboard JSON would look like without actually creating the das
 
 `python ebs-cw-dashboard-latency.py --dry-run`
 
-## ebs-cw-show-latency-metrics-current.py
+#### ebs-cw-show-latency-metrics-current.py
 
 Show the EBS CloudWatch Latency Metrics in table format.
 
@@ -218,19 +222,19 @@ Write Latency is calculated `(TotalWriteTime / TotalWriteOps) * 1000`
 
 (note: the `* 1000` is about readability - 4.01 vs .0041)
 
-### Python Requirements
+##### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Tabulate and Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Python Module Installation
+##### Python Module Installation
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3, tabulate, and argparse using pip (pip install boto3 tabulate argparse).
 
-### AWS Access Permissions
+##### AWS Access Permissions
 
 _CloudWatch Permissions:_
 
@@ -241,19 +245,19 @@ _EC2 Permissions_
 
 - `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
 
-### Usage
+##### Usage
 
 You can run the script from the command line with the following syntax:
 
 `python ebs-cw-show-latency-metrics-current.py [arguments]`
 
-### Arguments
+##### Arguments
 
 - `--volume-id VOL_ID`: If this argument is supplied, the script will calculate the latency for the specified volume ID only. Otherwise, it calculates latency for all volumes.
 - `--verbose`: If this argument is supplied, the script will output additional information.
 - `--dry-run`: If this argument is supplied, the script will output the JSON of the dashboard, but not create it.
 
-### Examples
+##### Examples
 
 To run the script for a specific volume with verbose output:
 
@@ -265,25 +269,27 @@ To run the script for all volumes:
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
 
-## ebs-cw-show-impairedvol.py
+### CLI Output
+
+#### ebs-cw-show-impairedvol.py
 
 Outout all EBS volumes, flagging any that are considered Impaired.
 
 This script is a Python program that uses the AWS SDK (boto3) to monitor the I/O operations for Amazon EBS volumes in an AWS account and create CloudWatch Alarms for "impaired" volumes. A "impaired" volume is one that has a queue length > 0 but no read or write operations.
 
-### Python Requirements
+##### Python Requirements
 
 - Python 3.6+
 - Boto3 (AWS SDK for Python)
 - Argparse
 - AWS credentials configured (can be configured using the AWS CLI)
 
-### Python Module Installation
+##### Python Module Installation
 
 - Ensure that you have Python 3.6 or newer installed.
 - Install Boto3 and Argepars using pip (pip install boto3 argparse).
 
-### AWS Access Permissions
+##### AWS Access Permissions
 
 _CloudWatch Permissions:_
 
@@ -294,13 +300,13 @@ _EC2 Permissions_
 
 - `ec2:DescribeVolumes`: This permission is required to retrieve information about the EBS volumes.
 
-### Usage
+##### Usage
 
 You can run the script from the command line with the following syntax:
 
 `python ebs-cw-show-impairedvol.py [arguments]`
 
-### Arguments
+##### Arguments
 
 - `--volumeid VOL_ID`: If this argument is supplied, the script will create a CloudWatch Alarm for the specified volume ID only. Otherwise, it creates alarms for all volumes.
 - `--verbose`: If this argument is supplied, the script will output additional information.
@@ -308,7 +314,7 @@ You can run the script from the command line with the following syntax:
 - `--impaired-alarm-cleanup`: If this argument is supplied, the script will remove impaired volume alarms for non-existent volumes.
 - `--all`: If this argument is supplied, the script will perform all operations.
 
-### Examples
+##### Examples
 
 To run the script for a specific volume with verbose output:
 
@@ -320,9 +326,6 @@ To run the script for all volumes:
 
 Please note: Ensure that you replace the vol-0123456789abcdef0 in the example with the actual volume ID you want to monitor.
 
-# TODO
+#### ebs-cw-show-latency-detailed-metrics-by-vol.py
 
-- For the CW Dashboards, check for limits when creating/updating a dashboard.
-  - Figure out what to do when the dashboard or widget limits are exceeded (new dashboard, new widget, error)
-- New script that creates / updates a CW Dashboard with an Alarm Status widget.
-- Add anomaly detection to the latency dashboard.
+#### ebs-cw-shows-latency-metrics-current.py
