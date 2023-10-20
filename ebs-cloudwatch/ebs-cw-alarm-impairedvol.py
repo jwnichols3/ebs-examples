@@ -17,6 +17,10 @@ class Config:
     ALARM_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
     METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
     ALARM_EVALUATION_PERIODS = 2  # How many times does the threshold have to breached before setting off the alarm
+    ALARM_DATAPOINTS_TO_ALARM = (
+        2  # Minimum number of datapoints the alarm needs within the alarm period
+    )
+    ALARM_THRESHOLD_VALUE = 1  # Threshold value for alarm
     DEFAULT_REGION = "us-west-2"
 
 
@@ -229,10 +233,10 @@ def generate_desired_alarm_details(volume_id, ec2):
 
     desired_alarm_details = {
         "AlarmDescription": alarm_description,
-        "Threshold": 1.0,
+        "Threshold": Config.ALARM_THRESHOLD_VALUE,
         "EvaluationPeriods": Config.ALARM_EVALUATION_PERIODS,
         "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
-        "DatapointsToAlarm": Config.ALARM_EVALUATION_PERIODS,
+        "DatapointsToAlarm": Config.ALARM_DATAPOINTS_TO_ALARM,
         # ... any other alarm attributes
     }
     return desired_alarm_details
@@ -359,8 +363,8 @@ def create_alarm(volume_id, cloudwatch, ec2):
         "AlarmName": alarm_name,
         "AlarmActions": [Config.SNS_ALARM_ACTION_ARN],
         "EvaluationPeriods": Config.ALARM_EVALUATION_PERIODS,
-        "DatapointsToAlarm": Config.ALARM_EVALUATION_PERIODS,
-        "Threshold": 1.0,
+        "DatapointsToAlarm": Config.ALARM_DATAPOINTS_TO_ALARM,
+        "Threshold": Config.ALARM_THRESHOLD_VALUE,
         "ComparisonOperator": "GreaterThanOrEqualToThreshold",
         "TreatMissingData": "missing",
         "AlarmDescription": alarm_description,
