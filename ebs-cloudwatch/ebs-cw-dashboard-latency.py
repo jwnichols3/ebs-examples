@@ -9,6 +9,21 @@ class Config:
     DASHBOARD_PERIOD = 60
 
 
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create CloudWatch Dashboard for EBS Read and Write Latency"
+    )
+    parser.add_argument("--verbose", action="store_true", help="Print debug statements")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print dashboard JSON but do not create it",
+    )
+    args = parser.parse_args()
+
+    create_dashboard(verbose=args.verbose, dry_run=args.dry_run)
+
+
 def get_ebs_volumes():
     ec2 = boto3.client("ec2")
     paginator = ec2.get_paginator("describe_volumes")  # Create a paginator
@@ -133,21 +148,6 @@ def create_dashboard(verbose=False, dry_run=False):
         )
         print("Put Dashboard Response:")
         print(response)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Create CloudWatch Dashboard for EBS Read and Write Latency"
-    )
-    parser.add_argument("--verbose", action="store_true", help="Print debug statements")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print dashboard JSON but do not create it",
-    )
-    args = parser.parse_args()
-
-    create_dashboard(verbose=args.verbose, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
