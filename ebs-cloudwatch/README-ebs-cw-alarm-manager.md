@@ -59,42 +59,38 @@ These are the constants used in the script.
 
 **Global Settings**
 
-- _PAGINATION_COUNT_ EBS Get volume pagination count
-- _DEFAULT_REGION_
-- _INCLUDE_OK_ACTION_ If set to False, this will not send the "OK" state change of the alarm to SNS
-- _SNS_OK_ACTION_ARN_ Consider this the default if --sns-topic is not passed
-- _SNS_ALARM_ACTION_ARN_ For simplicity, use same SNS topic for Alarm and OK actions
+- _PAGINATION_COUNT_: EBS Get volume pagination count
+- _DEFAULT_REGION_: AWS Region to query and create CloudWatch Alarms in.
+- _INCLUDE_OK_ACTION_: If set to False, this will not send the "OK" state change of the alarm to SNS
+- _SNS_OK_ACTION_ARN_: Consider this the default if --sns-topic is not passed
+- _SNS_ALARM_ACTION_ARN_: For simplicity, use same SNS topic for Alarm and OK actions
 
 **ImpairedVol Setting**
 
-- _ALARM_IMPAIREDVOL_NAME_PREFIX_ "EBS*ImpairedVol*" A clean way to identify these automatically created Alarms.
-- _ALARM_IMPAIREDVOL_EVALUATION_TIME_ 60 Frequency of Alarm Evaluation.
-- _ALARM_IMPAIREDVOL_METRIC_PERIOD_ (
-- ALARM_IMPAIREDVOL_EVALUATION_TIME Has to tbe the same (for now).
-- )
-- _ALARM_IMPAIREDVOL_EVALUATION_PERIODS_ 2 How many times does the threshold have to breached before setting off the alarm
-- _ALARM_IMPAIREDVOL_DATAPOINTS_TO_ALARM_ (
-- 2 Minimum number of datapoints the alarm needs within the alarm period
-- )
-- _ALARM_IMPAIREDVOL_THRESHOLD_VALUE_ 1 Threshold value for alarm
+- _ALARM_IMPAIREDVOL_NAME_PREFIX_: A clean way to identify these automatically created Alarms.
+- _ALARM_IMPAIREDVOL_EVALUATION_TIME_: Frequency of Alarm Evaluation.
+- _ALARM_IMPAIREDVOL_METRIC_PERIOD_: Has to be the same as Evaluation Time (for now).
+- _ALARM_IMPAIREDVOL_EVALUATION_PERIODS_: How many times does the threshold have to breached before setting off the alarm
+- _ALARM_IMPAIREDVOL_DATAPOINTS_TO_ALARM_: Minimum number of datapoints the alarm needs within the alarm period
+- _ALARM_IMPAIREDVOL_THRESHOLD_VALUE_: Threshold value for alarm
 
 **ReadLatency Settings**
 
-- _ALARM_READLATENCY_NAME_PREFIX_ A clean way to identify these automatically created Alarms.
-- _ALARM_READLATENCY_THRESHOLD_VALUE_ Threshold value for alarm
-- _ALARM_READLATENCY_EVALUATION_TIME_ Frequency of Alarm Evaluation.
-- _ALARM_READLATENCY_METRIC_PERIOD_ as Evaluation Time Has to tbe the same (for now).
-- _ALARM_READLATENCY_EVALUATION_PERIODS_ How many times does the threshold have to breached before setting off the alarm
-- _ALARM_READLATENCY_DATAPOINTS_TO_ALARM_ Minimum number of datapoints the alarm needs within the alarm period
+- _ALARM_READLATENCY_NAME_PREFIX_: A clean way to identify these automatically created Alarms.
+- _ALARM_READLATENCY_THRESHOLD_VALUE_: Threshold value for alarm
+- _ALARM_READLATENCY_EVALUATION_TIME_: Frequency of Alarm Evaluation.
+- _ALARM_READLATENCY_METRIC_PERIOD_: has Evaluation Time Has to tbe the same (for now).
+- _ALARM_READLATENCY_EVALUATION_PERIODS_: How many times does the threshold have to breached before setting off the alarm
+- _ALARM_READLATENCY_DATAPOINTS_TO_ALARM_: Minimum number of datapoints the alarm needs within the alarm period
 
 **WriteLatency Settings**
 
-- _ALARM_WRITELATENCY_NAME_PREFIX_ A clean way to identify these automatically created Alarms.
-- _ALARM_WRITELATENCY_THRESHOLD_VALUE_ Threshold value for alarm
-- _ALARM_WRITELATENCY_EVALUATION_TIME_ Frequency of Alarm Evaluation.
-- _ALARM_WRITELATENCY_METRIC_PERIOD_ has to be the same as Evaulation Time (for now).
-- _ALARM_WRITELATENCY_EVALUATION_PERIODS_ How many times does the threshold have to breached before setting off the alarm
-- _ALARM_WRITELATENCY_DATAPOINTS_TO_ALARM_ Minimum number of datapoints the alarm needs within the alarm period
+- _ALARM_WRITELATENCY_NAME_PREFIX_: A clean way to identify these automatically created Alarms.
+- _ALARM_WRITELATENCY_THRESHOLD_VALUE_: Threshold value for alarm
+- _ALARM_WRITELATENCY_EVALUATION_TIME_: Frequency of Alarm Evaluation.
+- _ALARM_WRITELATENCY_METRIC_PERIOD_: has to be the same as Evaulation Time (for now).
+- _ALARM_WRITELATENCY_EVALUATION_PERIODS_: How many times does the threshold have to breached before setting off the alarm
+- _ALARM_WRITELATENCY_DATAPOINTS_TO_ALARM_: Minimum number of datapoints the alarm needs within the alarm period
 
 ### `--create` Option
 
