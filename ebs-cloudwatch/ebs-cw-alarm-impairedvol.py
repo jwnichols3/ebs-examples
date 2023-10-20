@@ -32,6 +32,7 @@ def main():
         logging.basicConfig(level=logging.WARNING)
 
     ec2, cloudwatch, sns = initialize_aws_clients(args.region)
+    # if --tag is used, it requires two values passed (tag_name, tag_value)
     tag_name, tag_value = args.tag if args.tag else (None, None)
     volume_ids = get_all_volume_ids(ec2=ec2, tag_name=tag_name, tag_value=tag_value)
     alarm_names = get_all_alarm_names(cloudwatch=cloudwatch)
