@@ -1,6 +1,23 @@
-# Overview of CloudWatch Cross-Account Observability Configuration
+# Overview of CloudWatch Cross-Account Observability Access Manager (OAM)
 
-This document describes some of the nuances to setting up cross-account and cross-region CloudWatch Observability using the [Setup Instructions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Cross-Account-Cross-Region.html). The setup is done using ClickOps unless time and effort is invested in setting up SSM Automation.
+This document describes some of the nuances to setting up cross-account and cross-region CloudWatch Observability (known as Observability Access Manager, OAM) using the [Setup Instructions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Cross-Account-Cross-Region.html). The setup is done using ClickOps unless time and effort is invested in setting up SSM Automation.
+
+### Terraform Modules Related to OAM
+
+[Github Information from AWS](https://github.com/aws-samples/cloudwatch-obervability-access-manager-terraform)
+
+#### Resources
+
+- [OAM Links](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/oam_link)
+- [OAM Sink](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/oam_sink)
+- [OAM Sink Link](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/oam_sink_link)
+
+#### Data Sources
+
+- [OAM Link](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/oam_link)
+- [OAM Links](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/oam_links)
+- [OAM Sink](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/oam_sink)
+- [OAM Sinks](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/oam_sinks)
 
 ## Terms
 
