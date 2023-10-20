@@ -4,6 +4,7 @@ import sys
 import logging
 
 
+# Make changes to how you want the alarm parameters in this class.
 class Config:
     PAGINATION_COUNT = 100  # EBS Get volume pagination count
     DEFAULT_REGION = "us-west-2"

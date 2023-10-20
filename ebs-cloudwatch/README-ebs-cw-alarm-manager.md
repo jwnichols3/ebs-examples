@@ -1,14 +1,22 @@
-# Converged into the ebs-cw-alarm-manager.py script
-
-# ebs-cw-alarm-impairedvol.py
+# ebs-cw-alarm-manager.py
 
 ## Overview
 
-This Python script is designed to manage AWS CloudWatch Impaired Volume Alarms for EBS (Elastic Block Store) volumes.
+This Python script is designed to manage AWS CloudWatch Alarms for EBS (Elastic Block Store) volumes.
 
-The script provides functionalities to create, update, and clean up CloudWatch Alarms for EBS volumes in an impaired state.
+The script provides functionalities to create, update, and clean up CloudWatch Alarms for EBS volumes for the following areas:
 
-It checks the Impaired Volume alarm configurations, ensures that the alarm descriptions are up-to-date, and removes any outdated alarms.
+- Impaired Volume
+- Read Latency
+- Write Latency
+
+## Features
+
+- Create CloudWatch Alarms for EBS volumes.
+- Cleanup CloudWatch Alarms that are no longer needed.
+- Support for multiple alarm types: `ImpairedVolume`, `ReadLatency`, and `WriteLatency`.
+- Filter EBS volumes by tags.
+- Verbose and Debug mode for logging.
 
 ## Prerequisites
 
@@ -36,13 +44,10 @@ SNS Permissions:
 
 ## Options
 
-- `--volume-id`: Specify a specific EBS volume ID to operate on.
 - `--create`: Create CloudWatch Alarms for the specified EBS volumes.
 - `--cleanup`: Remove CloudWatch Alarms that are no longer needed.
-- `--update`: Update existing CloudWatch Alarms for the specified EBS volumes.
 - `--tag`: the Tag Name and Tag Value to filter EBS volumes by (example: `--tag ClusterName HDFS_PROD_1` will search and apply to just the EBS volumes that have a tag `ClusterName` with a value of `HDFS_PROD_1`)
 - `--region`: AWS region where the EBS volumes are located (defaults to `us-west-2`).
-- `--all`: Perform all operations: cleanup, create, and update.
 - `--verbose`: Enable verbose logging.
 - `--debug`: Enable debug logging.
 
@@ -52,25 +57,44 @@ SNS Permissions:
 
 These are the constants used in the script.
 
-- _ALARM_PREFIX_: A prefix added to the CloudWatch Alarm names to help identify them. This could be something like "EBS*ImpairedVol*" to uniquely tag these alarms.
+**Global Settings**
 
-- _INCLUDE_OK_ACTION_: A boolean flag that, when set to True, will include the "OK" state change of the CloudWatch Alarm in the SNS notifications. If set to False, only the "ALARM" state changes will trigger SNS notifications.
+- _PAGINATION_COUNT_ EBS Get volume pagination count
+- _DEFAULT_REGION_
+- _INCLUDE_OK_ACTION_ If set to False, this will not send the "OK" state change of the alarm to SNS
+- _SNS_OK_ACTION_ARN_ Consider this the default if --sns-topic is not passed
+- _SNS_ALARM_ACTION_ARN_ For simplicity, use same SNS topic for Alarm and OK actions
 
-- _SNS_OK_ACTION_ARN_: The Amazon Resource Name (ARN) for the SNS topic to which "OK" state changes should be published. This is used only if INCLUDE_OK_ACTION is set to True.
+**ImpairedVol Setting**
 
-- _SNS_ALARM_ACTION_ARN_: The ARN for the SNS topic to which "ALARM" state changes should be published.
+- _ALARM_IMPAIREDVOL_NAME_PREFIX_ "EBS*ImpairedVol*" A clean way to identify these automatically created Alarms.
+- _ALARM_IMPAIREDVOL_EVALUATION_TIME_ 60 Frequency of Alarm Evaluation.
+- _ALARM_IMPAIREDVOL_METRIC_PERIOD_ (
+- ALARM_IMPAIREDVOL_EVALUATION_TIME Has to tbe the same (for now).
+- )
+- _ALARM_IMPAIREDVOL_EVALUATION_PERIODS_ 2 How many times does the threshold have to breached before setting off the alarm
+- _ALARM_IMPAIREDVOL_DATAPOINTS_TO_ALARM_ (
+- 2 Minimum number of datapoints the alarm needs within the alarm period
+- )
+- _ALARM_IMPAIREDVOL_THRESHOLD_VALUE_ 1 Threshold value for alarm
 
-- _PAGINATION_COUNT_: The maximum number of results to return in each paginated AWS API call for describing volumes or CloudWatch alarms.
+**ReadLatency Settings**
 
-- _ALARM_EVALUATION_PERIODS_: The period, in seconds, over which the CloudWatch metric data points are evaluated against the alarm conditions.
+- _ALARM_READLATENCY_NAME_PREFIX_ A clean way to identify these automatically created Alarms.
+- _ALARM_READLATENCY_THRESHOLD_VALUE_ Threshold value for alarm
+- _ALARM_READLATENCY_EVALUATION_TIME_ Frequency of Alarm Evaluation.
+- _ALARM_READLATENCY_METRIC_PERIOD_ as Evaluation Time Has to tbe the same (for now).
+- _ALARM_READLATENCY_EVALUATION_PERIODS_ How many times does the threshold have to breached before setting off the alarm
+- _ALARM_READLATENCY_DATAPOINTS_TO_ALARM_ Minimum number of datapoints the alarm needs within the alarm period
 
-- _ALARM_DATAPOINTS_TO_ALARM_: Minimum number of datapoints the alarm needs within the alarm period
+**WriteLatency Settings**
 
-- _ALARM_THRESHOLD_VALUE_: The threshold value for alarm.
-
-- _METRIC_PERIOD_: The granularity, in seconds, of the returned CloudWatch metric data points. In this script, it is set to be the same as ALARM_EVALUATION_TIME.
--
-- _DEFAULT_REGION_: The default AWS region to use when no region is specified. This avoids hardcoding specific regions.
+- _ALARM_WRITELATENCY_NAME_PREFIX_ A clean way to identify these automatically created Alarms.
+- _ALARM_WRITELATENCY_THRESHOLD_VALUE_ Threshold value for alarm
+- _ALARM_WRITELATENCY_EVALUATION_TIME_ Frequency of Alarm Evaluation.
+- _ALARM_WRITELATENCY_METRIC_PERIOD_ has to be the same as Evaulation Time (for now).
+- _ALARM_WRITELATENCY_EVALUATION_PERIODS_ How many times does the threshold have to breached before setting off the alarm
+- _ALARM_WRITELATENCY_DATAPOINTS_TO_ALARM_ Minimum number of datapoints the alarm needs within the alarm period
 
 ### `--create` Option
 
@@ -131,36 +155,23 @@ When the script is run with the `--cleanup` option, it performs the following se
 
 This option is useful for cleaning up old or redundant CloudWatch Alarms related to EBS volumes that no longer exist, helping to maintain a cleaner and more manageable monitoring setup.
 
-### `--update` Option
-
-(NOTE: This option is still in development, so use with caution)
-
-This option exists to update the Alarm Description in the event the alarm details have changed.
-
 ## Usage Examples
 
-### To manage alarms for all volumes in the default region (us-west-2):
+### Create All
 
-```bash
-python script_name.py --all
+```
+python ebs-cw-alarm-manager.py --create --alarm-type all
 ```
 
-### To create alarms for a specific volume in a specific region:
+### Create just ImpairedVol
 
-```bash
-python script_name.py --create --volume-id vol-0123456789abcdef --region us-east-1
+```
+python ebs-cw-alarm-manager.py --create --alarm-type impairedvol
 ```
 
-### To clean up alarms in the default region:
+### Clean up all
 
 ```bash
-python script_name.py --cleanup
+python ebs-cw-alarm-manager.py --cleanup --alarm-type all
+
 ```
-
-### To update existing alarms with verbose logging:
-
-```bash
-python script_name.py --update --verbose
-```
-
-Replace `script_name.py` with the actual name of the script.

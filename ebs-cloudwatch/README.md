@@ -18,13 +18,11 @@ These are the Python scripts included in this repository. More details of each s
 
 ### ebs-cloudwatch directory
 
-[`ebs-cw-alarm-impairedvol.py`](./ebs-cw-alarm-impairedvol.py)
+[`ebs-cw-alarm-manager.py`](./ebs-cw-alarm-manager.py)
 
-This Python script creates AWS CloudWatch Alarms for Amazon EBS volumes. These alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
+This script replaces the `impairedvol` and `latency` scripts for CloudWatch Alarms. This script has options to deploy Impaired Volume, Read Latency, and Write Latency alarms.
 
-[`ebs-cw-dashboard-latency.py`](./ebs-cw-dashboard-latency.py)
-
-This Python script creates a CloudWatch Dashboard named "Read and Write Latency". The dashboard includes two calculated metrics for every EBS volume in the AWS Account.
+The Impaired Volume alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
 
 [`ebs-cw-show-detailed-metrics-for-latency-by-vol.py`](./ebs-cw-show-detailed-metrics-for-latency-by-vol.py)
 
@@ -63,17 +61,9 @@ These are examples of dashboards that visualize read latency, write latency, and
 
 ### CloudWatch Alarm Scripts
 
-#### ebs-cw-alarm-impairedvol.py
+#### ebs-cw-alarm-manager.py
 
-Create CloudWatch Alarm for EBS Impaired Volumes
-
-Details are in [README-ebs-cw-alarm-impairedvol](./README-ebs-cw-alarm-impairedvol.md).
-
-#### ebs-cw-alarm-latency.py
-
-Create CloudWatch Alarm for EBS Latency
-
-Details are in [README-ebs-cw-alarm-latency](./README-ebs-cw-alarm-latency.md).
+Details are in [README-ebs-cw-alarm-manager](./README-ebs-cw-alarm-manager.md)
 
 ### CloudWatch Custom Metrics
 

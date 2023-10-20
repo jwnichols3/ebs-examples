@@ -1,3 +1,11 @@
+#####################################################
+#####################################################
+#                                                   #
+# Converged into the ebs-cw-alarm-manager.py script #
+#                                                   #
+#####################################################
+#####################################################
+
 import boto3
 import argparse
 import sys
@@ -7,10 +15,22 @@ import logging
 # Constants
 class Config:
     PAGINATOR_COUNT = 100
-    SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"
-    DEFAULT_THRESHOLD = 200
-    EVALUATION_PERIODS = 1
-    DATAPOINTS_TO_ALARM = 1
+    SNS_ALARM_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
+    SNS_OK_ACTION_ARN = SNS_ALARM_ACTION_ARN  # For simplicity, use same SNS topic for Alarm and OK actions
+    INCLUDE_OK_ACTION = False  # If set to False, this will not send the "OK" state change of the alarm to SNS
+    ALARM_PREFIX = (
+        "ImpairedVol_"  # A clean way to identify these automatically created Alarms.
+    )
+
+    ALARM_THRESHOLD_VALUE = 200  # Latecy threshold
+    ALARM_EVALUATION_PERIODS = 2  # How many times does the threshold have to breached before setting off the alarm
+    ALARM_DATAPOINTS_TO_ALARM = (
+        1  # Minimum number of datapoints the alarm needs within the alarm period
+    )
+
+    ALARM_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
+    METRIC_PERIOD = ALARM_EVALUATION_TIME  # Has to tbe the same (for now).
+    DEFAULT_REGION = "us-west-2"
 
 
 # Initialize logging
@@ -40,11 +60,21 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
         for alarm in page["MetricAlarms"]
     ]
 
+    filter_list = []
+    if tag:  # Adjust this part
+        filter_list = [
+            {
+                "Name": f"tag:{tag[0]}",
+                "Values": [tag[1]],
+            }
+        ]
+
     # Get existing volume IDs
     volume_ids = [
         vol["VolumeId"]
         for page in ec2.get_paginator("describe_volumes").paginate(
-            MaxResults=Config.PAGINATOR_COUNT
+            MaxResults=Config.PAGINATOR_COUNT,
+            Filters=filter_list,  # Add filters here
         )
         for vol in page["Volumes"]
     ]
@@ -81,9 +111,9 @@ def main(tag=None, refresh=False, tagless=False, rename=False):
             tagname,
             cloudwatch,
             metric_names=["VolumeTotalReadTime", "VolumeReadOps"],
-            threshold=Config.DEFAULT_THRESHOLD,
-            evaluation_periods=Config.EVALUATION_PERIODS,
-            datapoints_to_alarm=Config.DATAPOINTS_TO_ALARM,
+            threshold=Config.ALARM_THRESHOLD_VALUE,
+            evaluation_periods=Config.ALARM_EVALUATION_PERIODS,
+            datapoints_to_alarm=Config.ALARM_DATAPOINTS_TO_ALARM,
         )
         updated_alarms.append(volume_id)
 
@@ -154,7 +184,7 @@ def create_latency_alarm(
                         "MetricName": metric_names[0],
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 300,
+                    "Period": Config.ALARM_EVALUATION_TIME,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -167,7 +197,7 @@ def create_latency_alarm(
                         "MetricName": metric_names[1],
                         "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                     },
-                    "Period": 300,
+                    "Period": Config.ALARM_EVALUATION_TIME,
                     "Stat": "Average",
                 },
                 "ReturnData": False,
@@ -183,7 +213,13 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Create or update CloudWatch Alarms for EBS latency."
     )
-    parser.add_argument("--tag", help="Tag name to filter volumes.")
+    #    parser.add_argument("--tag", help="Tag name to filter volumes.")
+    parser.add_argument(
+        "--tag",
+        nargs=2,
+        metavar=("TagName", "TagValue"),
+        help="TagName and TagValue to filter EBS volumes.",
+    )
     parser.add_argument(
         "--refresh", action="store_true", help="Refresh existing alarms."
     )
