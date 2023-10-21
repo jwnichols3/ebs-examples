@@ -13,9 +13,10 @@ On Oct 20, 2023 the `ebs-cw-alarm-manager.py` script replaced the `impairedvol` 
 
 ### `ebs-cw-alarm-manager.py`
 
-- cross-region awareness (e.g. CloudWatch Dashboard in one region, EBS / EC2 instances in a different region)
-- Adding tests
-- Abstraction so that additional alarms can be added
+- [ ] cross-region awareness (e.g. CloudWatch Dashboard in one region, EBS / EC2 instances in a different region)
+- [ ] Adding tests
+- [ ] Abstraction so that additional alarms can be added without lots of code duplication.
+- [ ] Configuration file for options versus the CONSTANTS.
 
 ## CloudWatch Custom Metrics
 

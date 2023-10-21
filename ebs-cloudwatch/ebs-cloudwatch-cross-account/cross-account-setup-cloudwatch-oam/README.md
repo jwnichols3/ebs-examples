@@ -2,7 +2,11 @@
 
 This document describes some of the nuances to setting up cross-account and cross-region CloudWatch Observability (known as Observability Access Manager, OAM) using the [Setup Instructions](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Cross-Account-Cross-Region.html). The setup is done using ClickOps unless time and effort is invested in setting up SSM Automation.
 
-### Terraform Modules Related to OAM
+## To Do Tracking
+
+[Cross Account OAM Setup To Do Tracking](./TODO.md)
+
+## Terraform Modules Related to OAM
 
 [Github Information from AWS](https://github.com/aws-samples/cloudwatch-obervability-access-manager-terraform)
 

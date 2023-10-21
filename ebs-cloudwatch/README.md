@@ -2,11 +2,13 @@
 
 ## TODO
 
-[TO DO](TODO.md)
+[CloudWatch Examples To Do List](TODO.md)
 
 ## Overview
 
 This folder contains the stand-alone Python scripts to update CloudWatch Alarms, show if any EBS volumes are in the Impaired status, show latency metrics, create custom CloudWatch metrics for read and write latency, example CloudWatch dashboards, and more.
+
+There is a [Cross-Account, Cross-Region folder](./ebs-cloudwatch-cross-account/) that includes examples of how to retrieve metrics from other AWS accounts and regions and publish to a central CloudWatch Dashboard using the CLoudWatch Observability Access Manager (OAM) feature.
 
 ## Disclaimer
 
@@ -58,6 +60,13 @@ There are two example dashboards included:
 These are examples of dashboards that visualize read latency, write latency, and total latency for EBS volumes using the custom latency metrics created by the Python scripts. The top 10 read latency dashboard shows the volumes with the highest read latency, while the read/write dashboard shows these metrics for all volumes on a single dashboard.
 
 ## Python Script Details
+
+There are three categories of scripts:
+
+- CloudWatch Alarms
+- CloudWatch Dashboards
+- CloudWatch Custom Metrics
+- CLI-based scripts that print CloudWatch data.
 
 ### CloudWatch Alarm Scripts
 
