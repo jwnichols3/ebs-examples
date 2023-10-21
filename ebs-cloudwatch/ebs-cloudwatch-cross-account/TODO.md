@@ -1,14 +1,14 @@
 # Cross-Account CW Dashboard Progress Tracking and TODO
 
-- [] All: Max length of all the things. (255 for Title, etc)
+- [ ] All: Max length of all the things. (255 for Title, etc)
 - [x] Dashboards: Sharding on Dashboards that exceed maxiumum metrics per dashboard
 - [x] Dashboards: Add a Return to Main Nav widget on each dashboard.
-- [] All: Reduce cognitive load on some of the functions.
-- [] All: Include IAM Role and Policy examples in the [README](./README.md)
-- [] All: Testing of negitive cases (wrong data, access, etc)
-- [] Main Nav: Error Check: Check to see if Main Nav exceeding max height on a widget.
-- [] Main Nav: Feature: Create a single widget per Account
-- [] Main Nav: Feature: Create a single widget per Region
+- [ ] All: Reduce cognitive load on some of the functions.
+- [ ] All: Include IAM Role and Policy examples in the [README](./README.md)
+- [ ] All: Testing of negitive cases (wrong data, access, etc)
+- [ ] Main Nav: Error Check: Check to see if Main Nav exceeding max height on a widget.
+- [ ] Main Nav: Feature: Create a single widget per Account
+- [ ] Main Nav: Feature: Create a single widget per Region
 
 ## Progress Tracking (MVP)
 
@@ -25,8 +25,8 @@
 
 In addition to the full list, create widgets based on:
 
-- [] Region
-- [] Account
+- [ ] Region
+- [ ] Account
 
 ## Progress Tracking (Post-MVP)
 

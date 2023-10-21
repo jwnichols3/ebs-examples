@@ -1,6 +1,6 @@
 # ebs-examples
 
-## TODO
+## TODO and Feature Tracking
 
 [To do and Feature Tracking](./TODO.md)
 
@@ -16,6 +16,7 @@ In addition to the Python scripts, there are AWS Systems Manager automations tha
 
 - _Sept 12, 2023_ New cross-account, cross-region CloudWatch Dashboards script that aggregates metrics from multiple AWS accounts and regions into a single dashboard for easier monitoring. [CW Dashboard Cross Account, Cross Region README](./ebs-cloudwatch/ebs-cloudwatch-cross-account/)
 - _Oct 10, 2023_ Added support for aggregating EBS volume impairment metrics (status checks) across accounts and regions in the [cross-account dashboard](./ebs-cloudwatch/ebs-cloudwatch-cross-account/).
+- _Oct 20, 2023_ Converged the EBS CloudWatch Alarm scripts into a single script `ebs-cw-alarm-manager.py` ([README](./ebs-cloudwatch/README-ebs-cw-alarm-manager.md)), effectively retiring the standalone `impairedvol` and `latency` alarm scripts. Also restructured the REPO to be more logically arranged.
 
 ## Disclaimer
 
@@ -23,30 +24,34 @@ Please note: These scripts are intended for educational purposes and are not rec
 
 ## Resources in this Repo
 
+_Philosophy_: my philosophy when creating these scripts and examples is to create stand-alone examples. This might make for inefficient code (e.g. functionality repeated across several scripts). The purpose behind this is to make each script a contained thing you can review, understand, and leverage the parts that make sense to you. You might see some refactoring over time that reflects more effective Python coding techniques, but I will usually stop short of ultra-sophisticated Python, mostly in care of my future self who will look at this code and find it easy to understand, modify and reuse parts of as needed instead of re-learning the sophisticated Python concepts.
+
 ### EBS CloudWatch Scripts
 
-The [ebs-cloudwatch](./ebs-cloudwatch/) folder contains the stand-alone Python scripts to update CloudWatch Alarms, show if any EBS volumes are in the Impaired status, show latency metrics, create custom CloudWatch metrics for read and write latency, example CloudWatch dashboards, and more.
+The [ebs-cloudwatch](./ebs-cloudwatch/) folder contains Python scripts to deploy and manage CloudWatch Alarms, CloudWatch Dashboards, CloudWatch Custom Metrics, and CLI-based scripts.
 
 #### EBS CloudWatch Cross-Account, Cross-Region Scripts
 
 The [ebs-cloudwatch/ebs-cloudwatch-cross-account/](./ebs-cloudwatch/ebs-cloudwatch-cross-account/) folder contains Python scripts to aggregate CloudWatch metrics from multiple AWS accounts and regions into a suite of CloudWatch Dashboards using the boto3 library. The scripts query AWS resource metadata across accounts and regions, process the results, and creates/updates a suite of CloudWatch Dashboards that reflect the different Applications (based on Tag Names) across Regions and Accounts.
 
-### Systems Manager Automation (CloudWatch EBS ImpairedVol Alarms)
+### EBS-Centric Systems Manager Automation Examples
 
-The [systems-manager-automation-ebs-cw-alarms](./systems-manager-automation-ebs-cw-alarms) folder contains examples of using AWS Systems Manager Automation to create and delete CloudWatch Alarms for EBS Volumes in an Impaired state. This includes an end-to-end test script that is usable with both the Systems Manager examples and the Terraform examples.
+In the [Systems Manager examples folder](./ebs-systems-manager-examples) are examples of leveraging AWS Systems Manager to deploy and manage EBS Monitoring and Alerts.
 
-### Terraform Alert Automation
+### EBS-Based Terraform Examples
 
-The [terraform-ebs-cw-alert-automation](./terraform-ebs-cw-alert-automation) folder contains Terraform script to deploy EventBridge rules to automatically run a Lambda function that creates and deletes CloudWatch alarms for EBS volumes that are determined to be in an Impaired state.
+In the [Terraform Examples](./ebs-terraform-examples) folder there are examples of deploying alerts and monitoring using Terraform scripts.
 
-### Terraform Latency Custom Metrics
+### EBS End-to-End Testing
 
-The [terraform-ebs-cw-latency-custom-metric](./terraform-ebs-cw-latency-custom-metric/) folder contains Terraform script that deploys a Lambda function to collect CloudWatch metrics required to calculate Read and Write Latency per EBS Volume. The script then puts custom Read, Write, and Total Latency metrics per volume. Having the custom metrics for Latency enables the creation of dashboards that leverage dynamic queries (as of Sep 2023, CloudWatch dashboards support a single metric query - latency requires a complex query). There is an example dashboard configuration included that shows the Top 10 Read Latency by volume.
+The [ebs-end-to-end-testing](./ebs-end-to-end-testing/) folder contains scripts to launch EC2 instances with EBS volumes. There are examples of using `fio` to perform load tests against EBS volumes by reading and writing random data. This allows validating that CloudWatch alarms and dashboards react as expected when volumes become impaired.
 
-### EBS Mini Load Testing and Fault Injection Testing
+### EBS Fauilt Injection (FIS) Testing
 
-The [ebs-end-to-end-testing](./ebs-end-to-end-testing/) folder contains scripts to launch EC2 instances with EBS volumes. There are examples of using `fio` to perform load tests against EBS volumes by reading and writing random data. This allows validating that CloudWatch alarms and dashboards react as expected when volumes become impaired. There is a subfolder that includes the AWS Fault Injection Simulator configuration to inject faults. Note: this is going through revisions to do end-to-end testing for CloudWatch Alarm deploymennt, and more.
+The [EBS FIS folder](./ebs-fault-injection-fis/) includes the AWS Fault Injection Simulator configuration to inject faults. Note: this is going through revisions to do end-to-end testing for CloudWatch Alarm deploymennt, and more.
 
 ## EBS Utils Python Script
 
-`ebs-utils.py`
+[`ebs-utilitiess.py`](./ebs-utilities.py)
+
+A general purpose script that does things like list tag values for volumes, gets a list of volumes, etc. This is useful for troubleshooting and testing.

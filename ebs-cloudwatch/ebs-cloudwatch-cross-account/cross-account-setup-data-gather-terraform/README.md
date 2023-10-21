@@ -1,4 +1,4 @@
-# Overview and Limitations
+# Overview of Cross Account Setup for CloudWatch Data Gathering using Terraform
 
 These Terraform scripts create IAM roles in the target accounts to allow the main account to assume a role and query data from services like CloudWatch, EC2, and EBS. The roles are given a minimum set of permissions needed to query metrics and tags.
 
@@ -24,3 +24,7 @@ In each account, edit the `terraform.tfvars` and edit the corresponging values:
 
 - _target-account-ids_ = list of target accounts found in the main-account tfvars file.
 - _main-account_-id = the main account id found in each of the target-account tfvars files
+
+## To Do Tracking
+
+[Cross Account Setup for Data Gathering To Do List](./TODO.md)
