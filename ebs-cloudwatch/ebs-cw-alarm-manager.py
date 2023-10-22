@@ -6,9 +6,8 @@ import json
 import logging
 
 
-
-
 # Make changes to how you want the alarm parameters in this class.
+
 
 class Config:
     PAGINATION_COUNT = 100  # EBS Get volume pagination count
@@ -583,58 +582,6 @@ def parse_args():
     parser.add_argument("--verbose", action="store_true", help="Verbose logging.")
     parser.add_argument("--debug", action="store_true", help="Debug logging.")
     return parser.parse_args()
-
-
-# Thinking about how to move this to a configuration file. Change the class Config below until noted.
-
-ALARM_SETTINGS = {
-    "PAGINATION_COUNT": 100,  # EBS Get volume pagination count
-    "DEFAULT_REGION": "us-west-2",
-    "INCLUDE_OK_ACTION": True,  # If set to False, this will not send the "OK" state change of the alarm to SNS
-    "SNS_OK_ACTION_ARN": "arn:aws:sns:us-west-2:338557412966:ebs_alarms",  # Consider this the default if --sns-topic is not passed
-    "SNS_ALARM_ACTION_ARN": "arn:aws:sns:us-west-2:338557412966:ebs_alarms",,  # For simplicity, use same SNS topic for Alarm and OK actions
-    ## ImpairedVol Settings ##
-    "ALARM_IMPAIREDVOL_NAME_PREFIX": "EBS_ImpairedVol_",  # A clean way to identify these automatically created Alarms.
-    "ALARM_IMPAIREDVOL_EVALUATION_TIME": 60,  # Frequency of Alarm Evaluation.
-    "ALARM_IMPAIREDVOL_METRIC_PERIOD": 60,  # Has to tbe the same (for now).
-    "ALARM_IMPAIREDVOL_EVALUATION_PERIODS": 2,  # How many times does the threshold have to breached before setting off the alarm
-    "ALARM_IMPAIREDVOL_DATAPOINTS_TO_ALARM": 2,
-    "ALARM_IMPAIREDVOL_THRESHOLD_VALUE": 1,  # Threshold value for alarm
-    ## ReadLatency Settings ##
-    "ALARM_READLATENCY_NAME_PREFIX": "EBS_ReadLatency_",  # A clean way to identify these automatically created Alarms.
-    "ALARM_READLATENCY_THRESHOLD_VALUE": 50,  # Threshold value for alarm
-    "ALARM_READLATENCY_EVALUATION_TIME": 60,  # Frequency of Alarm Evaluation.
-    "ALARM_READLATENCY_METRIC_PERIOD": 60,  # Has to tbe the same (for now).
-    "ALARM_READLATENCY_EVALUATION_PERIODS": 2,  # How many times does the threshold have to breached before setting off the alarm
-    "ALARM_READLATENCY_DATAPOINTS_TO_ALARM": 2, # Minimum number of datapoints the alarm needs within the alarm period
-    ## WriteLatency Settings ##
-    "ALARM_WRITELATENCY_NAME_PREFIX": "EBS_WriteLatency_",  # A clean way to identify these automatically created Alarms.
-    "ALARM_WRITELATENCY_THRESHOLD_VALUE": 200,  # Threshold value for alarm
-    "ALARM_WRITELATENCY_EVALUATION_TIME": 60,  # Frequency of Alarm Evaluation.
-    "ALARM_WRITELATENCY_METRIC_PERIOD": 60,  # Has to tbe the same (for now).
-    "ALARM_WRITELATENCY_EVALUATION_PERIODS": 2,  # How many times does the threshold have to breached before setting off the alarm
-    "ALARM_WRITELATENCY_DATAPOINTS_TO_ALARM": 2, # Minimum number of datapoints the alarm needs within the alarm period
-
-}
-
-# Path to the JSON configuration file
-config_file_path = "ebs-cw-alarm-manager.json"
-
-# Check if the JSON file exists
-if os.path.exists(config_file_path):
-    try:
-        # Load settings from JSON file
-        with open(config_file_path, "r") as f:
-            user_settings = json.load(f)
-        
-        # Update default settings with user-defined settings
-        ALARM_SETTINGS.update(user_settings)
-        
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON config file: {e}")
-    except Exception as e:
-        print(f"An error occurred while reading the config file: {e}")
-
 
 
 if __name__ == "__main__":
