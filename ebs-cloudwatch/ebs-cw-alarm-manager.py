@@ -76,7 +76,10 @@ def main():
         Config.SNS_ALARM_ACTION_ARN = args.sns_topic
         Config.SNS_OK_ACTION_ARN = args.sns_topic
 
-    alarm_type = args.alarm_type
+    if not args.alarm_type:
+        alarm_type = "all"
+    else:
+        alarm_type = args.alarm_type
 
     # Check SNS existence here only for --all and --create
     if args.create:
@@ -101,6 +104,8 @@ def main():
 
     if args.create:
         for alarm_type in alarm_types_list:
+            logging.info(f"Creating {alarm_type} alarms...")
+            print(f"Creating {alarm_type} alarms...")
             stats["created"] += create_alarms(
                 target_volumes=volume_ids,
                 alarm_names=alarm_names,
@@ -111,6 +116,8 @@ def main():
 
     if args.cleanup:
         for alarm_type in alarm_types_list:
+            logging.info(f"Cleanup {alarm_type} alarms...")
+            print(f"Cleaning up {alarm_type} alarms...")
             stats["deleted"] += cleanup_alarms(
                 volume_ids=volume_ids,
                 alarm_names=alarm_names,
