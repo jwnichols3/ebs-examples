@@ -26,6 +26,17 @@ This script replaces the `impairedvol` and `latency` scripts for CloudWatch Alar
 
 The Impaired Volume alarms are designed to alert when an EBS volume becomes "impaired." A "impaired" volume is one that has a queue length but no read or write operations.
 
+[`ebs-cw-dashboard-volumestatus.py`](./ebs-cw-dashboard-volumestatus.py)
+
+This script creates CloudWatch dashboards for EBS volumes, filtered optionally by tag.
+
+This script calls AWS APIs to get a list of EBS volumes, extracts volume IDs
+and CloudWatch metrics for each volume, and creates CloudWatch dashboards
+displaying those metrics.
+
+Dashboards are sharded to stay within CloudWatch dashboard size limits. Stale
+dashboards are cleaned up based on the set dashboard name prefix.
+
 [`ebs-cw-show-detailed-metrics-for-latency-by-vol.py`](./ebs-cw-show-detailed-metrics-for-latency-by-vol.py)
 
 This Python script prints detailed CloudWatch metrics for read, write, and overall latency for each EBS volume in the AWS account. It calculates and prints these metrics for each volume for a given time frame (defaulting in the last 24 hours). This provides visibility into the latency performance of each EBS volume over time. You can use this with the `--style` option of `tvs` to output in a tabular format for easy importing into spreadsheets or other tools.
@@ -153,6 +164,51 @@ Here is an example IAM Policy with these permissions.
 ```
 
 ### CloudWatch Dashboards
+
+These are example Python scripts that create CloudWatch dashboards for different scenarios. As these evolve, the individual scripts will converge into a single script that takes parameters to control what type of dashboard to create.
+
+#### ebs-cw-dashboard-volumestatus.py
+
+This script creates CloudWatch dashboards for EBS volumes, filtered optionally by tag, and with the ability to query EBS volumes in different regions than the CloudWatch dashboards are created.
+
+It calls AWS APIs to:
+
+- Get a list of EBS volumes
+- Extract volume IDs
+- Get CloudWatch metrics for each volume
+- Create CloudWatch dashboards displaying those metrics
+
+Dashboards are sharded to stay within CloudWatch limits. Stale dashboards are cleaned up based on the dashboard name prefix.
+
+##### Features
+
+- Retrieves list of EBS volumes using EC2 API
+- Gets CloudWatch metrics for each volume
+- Creates sharded CloudWatch dashboards for volumes
+- Dashboards display volume metrics
+- Can filter volumes by tag
+- Cleans up stale dashboards by name prefix
+
+##### Usage
+
+```bash
+python ebs-cw-dashboard-volumestatus.py [options]
+```
+
+##### Options
+
+- `--ebs-region` - AWS region for EBS volumes
+- `--cw-region` - AWS region for the CloudWatch Dashboards
+- `--tag` - Only include volumes with this tag
+- `--verbose`
+
+##### Configuration
+
+- `EBS_REGION` - Default EBS region
+- `DASHBOARD_NAME_PREFIX` - Dashboard name prefix
+- `DASHBOARD_PERIOD` - Dashboard default period
+- `DASHBOARD_WIDGET_WIDTH` - Widget width
+- `DASHBOARD_WIDGET_HEIGHT` - Widget height
 
 #### ebs-cw-dashboard-latency.py
 

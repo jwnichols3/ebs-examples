@@ -1,13 +1,26 @@
 import boto3
+
+"""
+Creates CloudWatch dashboards for EBS volumes, filtered optionally by tag.
+
+This script calls AWS APIs to get a list of EBS volumes, extracts volume IDs 
+and CloudWatch metrics for each volume, and creates CloudWatch dashboards 
+displaying those metrics.
+
+Dashboards are sharded to stay within CloudWatch dashboard size limits. Stale
+dashboards are cleaned up based on the set dashboard name prefix.
+
+"""
+
 import argparse
 import json
 
 
 class Config:
     EBS_REGION = "us-west-2"  # Default reigon if no --ebs-region provided
-    DASHBOARD_NAME_PREFIX = "EBS_Review"
+    DASHBOARD_NAME_PREFIX = "EBS_Review"  # the prefix of the dashboard. Depending on options, this will expand to add tags or be 'All' if tags are not provided.
     DASHBOARD_PERIOD = 60
-    DASHBOARD_WIDGET_WIDTH = 6
+    DASHBOARD_WIDGET_WIDTH = 6  # The max width of a CW Dashboard is 24, so it is recommended to have a width that is a factor of 24.
     DASHBOARD_WIDGET_HEIGHT = 6
     DASHBOARD_REGION = (
         "us-west-2"  # Default CloudWatch region if no --cw-region provided
