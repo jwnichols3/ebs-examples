@@ -89,11 +89,11 @@ def create_dashboard_shards(volumes, max_metrics_per_volume):
 
     for volume in volumes:
         if len(shard_volumes) >= max_volumes_per_shard:
-            shards[shard_count] = shard_volumes  # Add the current shard
-            shard_count += 1  # Increment the shard count
+            shards[shard_count] = shard_volumes
+            shard_count += 1
             shard_volumes = []  # Reset the list for the next shard
 
-        shard_volumes.append(volume)  # Add the current volume to the current shard
+        shard_volumes.append(volume)
 
     if shard_volumes:  # Add the last shard if it's not empty
         shards[shard_count] = shard_volumes
@@ -103,7 +103,6 @@ def create_dashboard_shards(volumes, max_metrics_per_volume):
 
 def create_dashboard(cw_region, ebs_region, volumes, verbose=False, dry_run=False):
     cloudwatch = boto3.client("cloudwatch", region_name=cw_region)
-    #    volumes = get_ebs_volumes(ebs_region)
 
     # Get metrics for the first volume to determine metrics per volume
     _, max_metrics_per_volume = get_metrics_for_volume(0, volumes[0], ebs_region)
