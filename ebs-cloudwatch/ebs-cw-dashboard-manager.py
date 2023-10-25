@@ -40,34 +40,41 @@ def update_dashboard(cloudwatch, verbose):
     # Get current alarms
     current_alarms = get_alarms(cloudwatch=cloudwatch)
 
-    # Initialize widget list
-    widgets = []
+    try:
+        # Get the existing dashboard
+        dashboard = cloudwatch.get_dashboard(DashboardName="MyDashboard")
+        dashboard_body = json.loads(dashboard["DashboardBody"])
+        # Get alarms from the existing dashboard
+        dashboard_alarms = dashboard_body["widgets"][0]["properties"]["alarms"]
+    except cloudwatch.exceptions.ResourceNotFoundException:
+        # No existing dashboard, so start with no alarms
+        dashboard_alarms = []
 
-    # Add individual widgets for each alarm
-    x_position = 0
-    y_position = 0
-    for alarm in current_alarms:
-        widget = {
-            "type": "alarm",
-            "x": x_position,
-            "y": y_position,
-            "width": 6,
-            "height": 6,
-            "properties": {
-                "title": f"Impaired Volume: {alarm.split(':')[-1]}",
-                "alarms": [alarm],
-            },
-        }
-        widgets.append(widget)
+    # Find alarms that are not on the dashboard
+    new_alarms = set(current_alarms) - set(dashboard_alarms)
+    if new_alarms:
+        print("\nAdding the following alarms to the dashboard:")
+        for alarm in new_alarms:
+            print(alarm)
 
-        # Update positions for the next widget
-        x_position += 6
-        if x_position >= 24:  # Assuming dashboard width of 24 units
-            x_position = 0
-            y_position += 6  # Move to the next row
+    # Collect the ARNs of the alarms that start with "ImpairedVol_"
+    alarm_arns = current_alarms
+
+    # Define the dashboard body
+    dashboard_body = {
+        "widgets": [
+            {
+                "type": "alarm",
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties": {"title": "Impaired Volume Alarms", "alarms": alarm_arns},
+            }
+        ]
+    }
 
     # Create or update the dashboard
-    dashboard_body = {"widgets": widgets}
     cloudwatch.put_dashboard(
         DashboardName="MyDashboard", DashboardBody=json.dumps(dashboard_body)
     )
