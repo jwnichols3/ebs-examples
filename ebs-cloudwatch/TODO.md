@@ -20,6 +20,8 @@ On Oct 20, 2023 the `ebs-cw-alarm-manager.py` script replaced the `impairedvol` 
 
 ## CloudWatch Custom Metrics
 
+These scripts create custom metrics for EBS volumes in two ways - a volume-by-volume way and using batch calls to CloudWatch. Part of the exercise is to show the speed difference between the two approaches.
+
 ### `ebs-cw-custom-metric-latency-batch`
 
 -
@@ -32,13 +34,21 @@ On Oct 20, 2023 the `ebs-cw-alarm-manager.py` script replaced the `impairedvol` 
 
 ### `ebs-cw-dashboards-by-tag.py`
 
--
+### `ebs-cw-dashboards-volumestatus.py`
+
+This is a good cross-region aware dashboard that displays volume status. It has sharding awareness and `--tag` support.
+
+- [ ] Error checking and exception handling.
+- [ ] Make this the foundation for the `manager` script.
+- [ ] Change from print statements to logging.
 
 ### `ebs-cw-dashboard-impairedvol.py`
 
--
+- [ ] Migrate this to the `manager` script approach for consistency.
 
 ### `ebs-cw-dashboard-latency.py`
+
+- [ ] Migrate this to the `manager` script approach for consistency.
 
 ### `ebs-cw-dashboard-manager.py`
 
