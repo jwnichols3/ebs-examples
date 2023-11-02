@@ -12,6 +12,9 @@ import logging
 class Config:
     PAGINATION_COUNT = 100  # EBS Get volume pagination count
     DEFAULT_REGION = "us-west-2"
+    VPC_ENDPOINT_CW = f"https://monitoring.{DEFAULT_REGION}.amazonaws.com"
+    VPC_ENDPOINT_EC2 = f"https://ec2.{DEFAULT_REGION}.api.aws"
+    VPC_ENDPOINT_SNS = f"https://sns.{DEFAULT_REGION}.amazonaws.com"
     INCLUDE_OK_ACTION = True  # If set to False, this will not send the "OK" state change of the alarm to SNS
     SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
     SNS_ALARM_ACTION_ARN = (
@@ -62,6 +65,12 @@ def main():
         logging.basicConfig(level=logging.INFO)
     else:
         logging.basicConfig(level=logging.WARNING)
+
+    if args.region:
+        Config.DEFAULT_REGION = args.region
+        Config.VPC_ENDPOINT_CW = f"https://monitoring.{args.region}.amazonaws.com"
+        Config.VPC_ENDPOINT_EC2 = f"https://ec2.{args.region}.api.aws"
+        Config.VPC_ENDPOINT_SNS = f"https://sns.{args.region}.amazonaws.com"
 
     ec2, cloudwatch, sns = initialize_aws_clients(args.region)
     # if --tag is used, it requires two values passed (tag_name, tag_value)
@@ -538,9 +547,15 @@ def check_sns_exists(sns, sns_topic_arn):
 
 def initialize_aws_clients(region):
     try:
-        ec2 = boto3.client("ec2", region_name=region)
-        cloudwatch = boto3.client("cloudwatch", region_name=region)
-        sns = boto3.client("sns", region_name=region)
+        ec2 = boto3.client(
+            "ec2", region_name=region, endpoint_url=Config.VPC_ENDPOINT_EC2
+        )
+        cloudwatch = boto3.client(
+            "cloudwatch", region_name=region, endpoint_url=Config.VPC_ENDPOINT_CW
+        )
+        sns = boto3.client(
+            "sns", region_name=region, endpoint_url=Config.VPC_ENDPOINT_SNS
+        )
         logging.info(f"Initilized AWS Client in region {region}")
     except Exception as e:
         logging.error(f"Failed to initialize AWS clients: {e}")
