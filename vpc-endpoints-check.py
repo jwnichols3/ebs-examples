@@ -82,6 +82,7 @@ def can_connect_to_endpoint(endpoint_url):
 
 
 def get_and_print_vpc_endpoints_dns_entries(ec2):
+    # Check connectivity to the EC2 VPC Endpoint
     if not can_connect_to_endpoint(Config.EC2_ENDPOINT_URL):
         logging.warning(
             "Cannot connect to EC2 VPC Endpoint. Ensure you're running this within the VPC or have necessary connectivity setup."
@@ -94,7 +95,12 @@ def get_and_print_vpc_endpoints_dns_entries(ec2):
             print(f"VPC Endpoint ID: {endpoint['VpcEndpointId']}")
             for entry in endpoint.get("DnsEntries", []):
                 print(f"\tDNS name: {entry['DnsName']}")
-                print(f"\tDNS IP: {entry['DnsIpAddresses']}")
+                dns_ips = entry.get("DnsIpAddresses", [])
+                if dns_ips:
+                    for ip in dns_ips:
+                        print(f"\t\tDNS IP: {ip}")
+                else:
+                    print("\t\tDNS IP: Not available")
     except Exception as e:
         logging.error("Failed to get VPC Endpoints DNS entries: {}".format(e))
 
