@@ -1,6 +1,6 @@
 import boto3
 import logging
-
+import socket
 
 class Config:
     DEFAULT_REGION = "us-west-2"
@@ -81,12 +81,18 @@ def can_connect_to_endpoint(endpoint_url):
         return False
 
 
+
+def resolve_dns_name_to_ip(dns_name):
+    """Resolve a DNS name to its IP address."""
+    try:
+        return socket.gethostbyname(dns_name)
+    except socket.gaierror:
+        return "Not available"
+
 def get_and_print_vpc_endpoints_dns_entries(ec2):
     # Check connectivity to the EC2 VPC Endpoint
     if not can_connect_to_endpoint(Config.EC2_ENDPOINT_URL):
-        logging.warning(
-            "Cannot connect to EC2 VPC Endpoint. Ensure you're running this within the VPC or have necessary connectivity setup."
-        )
+        logging.warning("Cannot connect to EC2 VPC Endpoint. Ensure you're running this within the VPC or have necessary connectivity setup.")
         return
 
     try:
@@ -94,13 +100,10 @@ def get_and_print_vpc_endpoints_dns_entries(ec2):
         for endpoint in vpc_endpoints.get("VpcEndpoints", []):
             print(f"VPC Endpoint ID: {endpoint['VpcEndpointId']}")
             for entry in endpoint.get("DnsEntries", []):
-                print(f"\tDNS name: {entry['DnsName']}")
-                dns_ips = entry.get("DnsIpAddresses", [])
-                if dns_ips:
-                    for ip in dns_ips:
-                        print(f"\t\tDNS IP: {ip}")
-                else:
-                    print("\t\tDNS IP: Not available")
+                dns_name = entry['DnsName']
+                print(f"\tDNS name: {dns_name}")
+                dns_ip = resolve_dns_name_to_ip(dns_name)
+                print(f"\t\tDNS IP: {dns_ip}")
     except Exception as e:
         logging.error("Failed to get VPC Endpoints DNS entries: {}".format(e))
 
