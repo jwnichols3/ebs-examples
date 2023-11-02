@@ -5,15 +5,16 @@ import os
 import json
 import logging
 
-
-# Make changes to how you want the alarm parameters in this class.
+# Make changes to how you want the alarm parameters in this class. The use of a Config data class is for simplicity in the script. It is not the best Python practice.
 
 
 class Config:
     PAGINATION_COUNT = 100  # EBS Get volume pagination count
     DEFAULT_REGION = "us-west-2"
     VPC_ENDPOINT_CW = f"https://monitoring.{DEFAULT_REGION}.amazonaws.com"
-    VPC_ENDPOINT_EC2 = f"https://ec2.{DEFAULT_REGION}.api.aws"
+    VPC_ENDPOINT_EC2 = (
+        f"https://ec2.{DEFAULT_REGION}.api.aws"  # dual-stack (IPv4 and IPv6) endpoint.
+    )
     VPC_ENDPOINT_SNS = f"https://sns.{DEFAULT_REGION}.amazonaws.com"
     INCLUDE_OK_ACTION = True  # If set to False, this will not send the "OK" state change of the alarm to SNS
     SNS_OK_ACTION_ARN = "arn:aws:sns:us-west-2:338557412966:ebs_alarms"  # Consider this the default if --sns-topic is not passed
@@ -22,7 +23,7 @@ class Config:
     )
     ## ImpairedVol Settings ##
     ALARM_IMPAIREDVOL_NAME_PREFIX = "EBS_ImpairedVol_"  # A clean way to identify these automatically created Alarms.
-    ALARM_IMPAIREDVOL_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
+    ALARM_IMPAIREDVOL_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation. EBS metrics are vended every 60 seconds by default.
     ALARM_IMPAIREDVOL_METRIC_PERIOD = (
         ALARM_IMPAIREDVOL_EVALUATION_TIME  # Has to tbe the same (for now).
     )
@@ -30,11 +31,13 @@ class Config:
     ALARM_IMPAIREDVOL_DATAPOINTS_TO_ALARM = (
         2  # Minimum number of datapoints the alarm needs within the alarm period
     )
-    ALARM_IMPAIREDVOL_THRESHOLD_VALUE = 1  # Threshold value for alarm
+    ALARM_IMPAIREDVOL_THRESHOLD_VALUE = (
+        1  # Threshold value for alarm - it is either 0 or 1
+    )
     ## ReadLatency Settings ##
     ALARM_READLATENCY_NAME_PREFIX = "EBS_ReadLatency_"  # A clean way to identify these automatically created Alarms.
-    ALARM_READLATENCY_THRESHOLD_VALUE = 50  # Threshold value for alarm
-    ALARM_READLATENCY_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
+    ALARM_READLATENCY_THRESHOLD_VALUE = 50  # Threshold value for alarm in milliseconds
+    ALARM_READLATENCY_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation. EBS metrics are vended every 60 seconds by default.
     ALARM_READLATENCY_METRIC_PERIOD = (
         ALARM_READLATENCY_EVALUATION_TIME  # Has to tbe the same (for now).
     )
@@ -44,8 +47,10 @@ class Config:
     )
     ## WriteLatency Settings ##
     ALARM_WRITELATENCY_NAME_PREFIX = "EBS_WriteLatency_"  # A clean way to identify these automatically created Alarms.
-    ALARM_WRITELATENCY_THRESHOLD_VALUE = 200  # Threshold value for alarm
-    ALARM_WRITELATENCY_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation.
+    ALARM_WRITELATENCY_THRESHOLD_VALUE = (
+        200  # Threshold value for alarm in milliseconds
+    )
+    ALARM_WRITELATENCY_EVALUATION_TIME = 60  # Frequency of Alarm Evaluation. EBS metrics are vended every 60 seconds by default.
     ALARM_WRITELATENCY_METRIC_PERIOD = (
         ALARM_WRITELATENCY_EVALUATION_TIME  # Has to tbe the same (for now).
     )
@@ -198,7 +203,7 @@ def cleanup_alarms(volume_ids, alarm_names, cloudwatch, alarm_type):
         search_prefix = Config.ALARM_WRITELATENCY_NAME_PREFIX
 
     for alarm_name in alarm_names:
-        # Only consider alarms that start with 'ImpairedVol_'
+        # Only consider alarms that start with the prefix defined in the Config class
         if alarm_name.startswith(search_prefix):
             # Extract volume ID from the alarm name
             volume_id = alarm_name[len(search_prefix) :]
