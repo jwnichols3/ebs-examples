@@ -1,13 +1,13 @@
-variable "ec2_key_pair" {
-  description = "The name of the EC2 Key Pair"
-  type        = string
-  default     = "jnicamzn-ec2-uswest2" # This is an optional default value.
-}
-
 variable "aws_region" {
   description = "The AWS Region"
   type        = string
-  default     = "us-west-2" # This is an optional default value.
+  default     = "us-west-2"
+}
+
+variable "ec2_key_pair" {
+  description = "The name of the EC2 Key Pair"
+  type        = string
+  default     = "jnicamzn-ec2-uswest2"
 }
 
 variable "lambda_zip_path" {
@@ -15,6 +15,12 @@ variable "lambda_zip_path" {
   type        = string
   // You can provide a default value or leave it out if you prefer to always pass the value explicitly
   default = "../../vpc-endpoints-check-lambda.zip"
+}
+
+variable "allowed_ingress_cidrs" {
+  description = "List of CIDR blocks allowed for ingress"
+  type        = list(string)
+  default     = ["198.134.98.50/32", "69.42.19.106/32"] # Replace with your default values
 }
 
 provider "aws" {
@@ -82,24 +88,18 @@ resource "aws_security_group" "remote_access" {
 
   # SSH access for specific IPs
   ingress {
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-    cidr_blocks = [
-      "198.134.98.50/32", # Mobile
-      "69.42.19.106/32"   # Home
-    ]
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_ingress_cidrs
   }
 
   # RDP access for specific IPs
   ingress {
-    from_port = 3389
-    to_port   = 3389
-    protocol  = "tcp"
-    cidr_blocks = [
-      "198.134.98.50/32", # Mobile
-      "69.42.19.106/32"   # Home
-    ]
+    from_port   = 3389
+    to_port     = 3389
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_ingress_cidrs
   }
 
   egress {
