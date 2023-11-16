@@ -10,6 +10,8 @@ This repository contains Python scripts that demonstrate the use of AWS SDK (bot
 
 In addition to the Python scripts, there are AWS Systems Manager automations that do similar functions. See more in the [SSM README](./systems-manager-automation-ebs-cw-alarms/)
 
+For more CloudWatch examples, see the [CW Examples Github Repo](https://github.com/jwnichols3/cw-examples)
+
 ## Updates
 
 - _Aug 28, 2023_ Moved the EBS CloudWatch scripts to the [ebs-cloudwatch](./ebs-cloudwatch/) folder.
