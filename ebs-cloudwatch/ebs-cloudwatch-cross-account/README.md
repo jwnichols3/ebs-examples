@@ -76,7 +76,7 @@ Once the CloudWatch Dashbaords are updated/created, the script gets the existing
 Also refer to the [CHECKLIST](./CHECKLIST.md)
 
 - IAM Role with Policies to gather the EBS, EC2, and CloudWatch metadata. [Terraform Version](./cross-account-setup-data-gather-terraform/)
-- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch) | (Link to AWS Documentation)(https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
+- [CloudWatch Cross-Account, Cross Region setup](./cross-account-setup-cloudwatch) | [Link to AWS Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html)
 - IAM Role with Policies that can create, update, delete CloudWatch dashboards and metrics in the target accounts.
 
 TODO: Add Policy Examples
