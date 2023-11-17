@@ -3,7 +3,7 @@
 temp.*
 temp*
 debug.log
-.vscode
+.vscode*
 
 # Terraform
 .terraform/
