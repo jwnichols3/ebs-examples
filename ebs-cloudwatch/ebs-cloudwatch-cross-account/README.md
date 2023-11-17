@@ -97,7 +97,7 @@ TODO: Insert IAM policy statement
 
 ## Utilities
 
-- [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py)] - this is an example Python script that deploys EC2 instances for testing purposes. Each EC2 and EBS volume deployed is tagged consistently so they can be terminated after testing. There are options for the number of instances, number and type of EBS volumes to attach to each instance, and the ability to deploy to different AWS Regions.
+- [EC2 Deployment Utility for Testing](../../ebs-end-to-end-testing/e2e-launch-ec2-instances.py) - this is an example Python script that deploys EC2 instances for testing purposes. Each EC2 and EBS volume deployed is tagged consistently so they can be terminated after testing. There are options for the number of instances, number and type of EBS volumes to attach to each instance, and the ability to deploy to different AWS Regions.
 
 ### Utilities to be developed
 
