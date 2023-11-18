@@ -7,16 +7,17 @@ import os
 import logging
 
 
+# This Config class stores the defaults used throughout the script. There are better ways to do this (read from a local file, for example). For this example, this was a fast way to make the constants searchable and obvious. Most of these options have a corresponding command line argument to override.
 class Config:
     EBS_PAGINATION = 300
-    DEFAULT_S3_REGION = "us-west-2"
-    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
-    DEFAULT_S3_KEY_PREFIX = ""
-    DEFAULT_DATA_FILE = "ebs-data.csv"
-    DEFAULT_DATA_FILE_STORE = "local"  # can be "local" or "s3"
-    DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"
-    DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # can be "local" or "s3"
-    DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
+    DEFAULT_S3_REGION = "us-west-2"  # --s3-region
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"  # --bucket-name
+    DEFAULT_S3_KEY_PREFIX = ""  # --key-prefix
+    DEFAULT_DATA_FILE = "ebs-data.csv"  # --data-file
+    DEFAULT_DATA_FILE_STORE = "local"  # --data-file-store (can be "local" or "s3")
+    DEFAULT_ACCOUNT_INFO_FILE = "account-info.csv"  # --account-info-file
+    DEFAULT_ACCOUNT_FILE_SOURCE = "local"  # --account-file-store can be "local" or "s3"
+    DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"  # --role-name
 
 
 def main():
@@ -82,7 +83,6 @@ def main():
             )
 
             # Read account info from CSV
-            #            with open(account_file_lines, "r") as csvfile:
             csvreader = csv.DictReader(account_file_lines)
             logging.info(f"CSV Headers: {csvreader.fieldnames}")
             for row in csvreader:
