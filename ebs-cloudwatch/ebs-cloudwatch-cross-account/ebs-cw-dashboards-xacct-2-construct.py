@@ -8,7 +8,8 @@ from botocore.exceptions import ClientError
 from collections import defaultdict
 
 
-# Use this class to set the Defaults and Constants. The variable format is Config.CONSTANT_NAME
+# Use this class to set the Defaults and Constants. The variable format is Config.CONSTANT_NAME.
+# Most of these have command line arguments to override.
 class Config:
     EBS_PAGINATION = 300
     CW_WIDGET_X = 8  # The width of the widgets on the constructed pages.
@@ -23,12 +24,15 @@ class Config:
     CW_MAINNAV_WIDGET_HEIGHT_BUFFER = (
         4  # The height buffer for widgets on the main nav dashboard
     )
-    DEFAULT_CW_REGION = "us-west-2"  # Where the CloudWatch dashboards will be created
-    DEFAULT_S3_REGION = "us-west-2"  # where the S3 data file is stored
-    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"
-    DEFAULT_S3_KEY_PREFIX = ""
-    DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"
-    DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"
+    DEFAULT_CW_REGION = (
+        "us-west-2"  # Where the CloudWatch dashboards will be created --cw-region
+    )
+    DEFAULT_S3_REGION = "us-west-2"  # where the S3 data file is stored --s3-region
+    DEFAULT_S3_BUCKET_NAME = "jnicmazn-ebs-observability-us-west-2"  # --bucket-name
+    DEFAULT_S3_KEY_PREFIX = ""  # --key-prefix
+    DEFAULT_CONSTRUCTION_DATA_FILE = "ebs-data.csv"  # --data-file-name
+    DEFAULT_CONSTRUCTION_DATA_FILE_SOURCE = "local"  # --data-file-source local or s3
+    )
     DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"
 
 
