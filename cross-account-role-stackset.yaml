@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy CrossAccountObservabilityRole across AWS Org
+
+Resources:
+  CrossAccountObservabilityRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: CrossAccountDataCollectionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::161521808930:root
+            Action: 'sts:AssumeRole'
+      Path: "/"
+      Description: Role for cross-account Data Collection

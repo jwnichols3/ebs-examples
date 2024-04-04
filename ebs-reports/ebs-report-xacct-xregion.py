@@ -222,6 +222,7 @@ def list_ebs_volumes(credentials, region, tag_name):
         if not next_token:
             break
 
+        logging.info("list_ebs_volumes funtion\n{all_volumes}")
     return {"Volumes": all_volumes}
 
 
