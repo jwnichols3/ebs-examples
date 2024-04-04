@@ -4,6 +4,8 @@ temp.*
 temp*
 debug.log
 .vscode*
+cross-account-setup.yaml
+
 
 # Terraform
 .terraform/
