@@ -22,6 +22,8 @@ class Config:
     DEFAULT_CROSS_ACCOUNT_ROLE_NAME = "CrossAccountObservabilityRole"  # --role-name
     DEFAULT_REPORT_FILE = "ebs-report.csv"  # --report-file
     DEFAULT_REPORT_FILE_STORE = "local"  # --report-file-store (can be "local" or "s3")
+    DEFAULT_SSO_FLAG = True  # True of False --use-sso
+    DEFAULT_PROFILE = "jnicamzn-sso-observability"  # --profile the AWS Profile
 
 
 def main():
@@ -30,6 +32,8 @@ def main():
 
     account_file = args.account_file
     role_name = args.role_name
+    use_sso = args.use_sso
+    profile = args.profile
     bucket_name = args.bucket_name
     key_prefix = args.key_prefix
     data_file = args.data_file
@@ -101,6 +105,8 @@ def main():
                     account_description=account_description,
                     main_csvwriter=main_csvwriter,
                     role_name=role_name,
+                    use_sso=use_sso,
+                    profile=profile,
                     # tag_name=tag_name,
                 )
 
@@ -130,10 +136,14 @@ def handle_account_processing(
     account_description=None,
     main_csvwriter=None,
     role_name=None,
+    use_sso=False,
+    profile=None,
     tag_name=None,
 ):
+    session = assume_role(account, role_name, use_sso, profile)
+
     try:
-        temp_credentials = assume_role(account, role_name)
+        temp_credentials = assume_role(account, role_name, use_sso, profile)
     except Exception as e:
         logging.error(
             f"Error assuming role for account {account} ({account_description}): {e}"
@@ -143,9 +153,7 @@ def handle_account_processing(
     logging.info(f"Assumed role for account: {account} ({account_description})")
 
     try:
-        ebs_volumes = list_ebs_volumes(
-            credentials=temp_credentials, region=region, tag_name=tag_name
-        )
+        ebs_volumes = list_ebs_volumes(session, region, tag_name)
     except Exception as e:
         logging.error(f"Error listing EBS volumes for account {account}: {e}")
         return
@@ -181,24 +189,38 @@ def handle_account_processing(
         )
 
 
-def assume_role(account_id, role_name):
-    sts_client = boto3.client("sts")
-    assumed_role_object = sts_client.assume_role(
-        RoleArn=f"arn:aws:iam::{account_id}:role/{role_name}",
-        RoleSessionName="AssumeRoleSession",
-    )
-    credentials = assumed_role_object["Credentials"]
-    return credentials
+import boto3
 
 
-def list_ebs_volumes(credentials, region, tag_name):
-    ec2_client = boto3.client(
-        "ec2",
-        region_name=region,
-        aws_access_key_id=credentials["AccessKeyId"],
-        aws_secret_access_key=credentials["SecretAccessKey"],
-        aws_session_token=credentials["SessionToken"],
-    )
+def assume_role(account_id, role_name, use_sso=False, profile_name=None):
+    """
+    Adjusted to support AWS SSO by utilizing a profile. When not using SSO,
+    it assumes a role using STS and returns temporary credentials.
+    """
+    if use_sso:
+        if not profile_name:
+            raise ValueError("SSO usage requires a profile name.")
+        # When using SSO, the session is directly created with the profile.
+        # AWS manages the credentials automatically.
+        session = boto3.Session(profile_name=profile_name)
+        return session
+    else:
+        sts_client = boto3.client("sts")
+        response = sts_client.assume_role(
+            RoleArn=f"arn:aws:iam::{account_id}:role/{role_name}",
+            RoleSessionName="AssumeRoleSession",
+        )
+        credentials = response["Credentials"]
+        return boto3.Session(
+            aws_access_key_id=credentials["AccessKeyId"],
+            aws_secret_access_key=credentials["SecretAccessKey"],
+            aws_session_token=credentials["SessionToken"],
+        )
+
+
+def list_ebs_volumes(session, region, tag_name):
+    # Use the provided session to create an EC2 client
+    ec2_client = session.client("ec2", region_name=region)
 
     all_volumes = []
     next_token = None
@@ -222,7 +244,6 @@ def list_ebs_volumes(credentials, region, tag_name):
         if not next_token:
             break
 
-        logging.info("list_ebs_volumes funtion\n{all_volumes}")
     return {"Volumes": all_volumes}
 
 
@@ -280,6 +301,18 @@ def parse_args():
         type=str,
         default=Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME,
         help=f"Specify the role name. Defaults to {Config.DEFAULT_CROSS_ACCOUNT_ROLE_NAME}.",
+    )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default=Config.DEFAULT_PROFILE,
+        help=f"Specify the AWS Profile. Defaults to {Config.DEFAULT_PROFILE}.",
+    )
+    parser.add_argument(
+        "--use-sso",
+        type=str,
+        default=Config.DEFAULT_SSO_FLAG,
+        help=f"Use AWS SSO (True or False). Defaults to {Config.DEFAULT_SSO_FLAG}.",
     )
     parser.add_argument(
         "--s3-region",
